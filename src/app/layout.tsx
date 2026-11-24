@@ -24,6 +24,7 @@ const sourceSerif = Source_Serif_4({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://lavrasnoticias.com'),
   title: 'Lavras Notícia – A informação do nosso bairro',
   description: 'Jornal digital comunitário e independente do bairro Lavras — Guarulhos, São Paulo.',
   icons: {

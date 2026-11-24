@@ -6,7 +6,7 @@ import { Lock, Mail, AlertCircle, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('admin@lavranoticias.com.br')
+  const [email, setEmail] = useState('admin@lavrasnoticias.com')
   const [password, setPassword] = useState('admin123')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -109,7 +109,7 @@ export default function AdminLoginPage() {
 
             <div className="p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">
               💡 <strong>Credencial padrão pré-configurada:</strong><br/>
-              E-mail: <code className="bg-slate-200 px-1 py-0.5 rounded">admin@lavranoticias.com.br</code><br/>
+              E-mail: <code className="bg-slate-200 px-1 py-0.5 rounded">admin@lavrasnoticias.com</code><br/>
               Senha: <code className="bg-slate-200 px-1 py-0.5 rounded">admin123</code>
             </div>
 

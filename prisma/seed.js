@@ -8,7 +8,17 @@ async function main() {
 
   // 1. Admin user
   const hashedPassword = await bcrypt.hash('admin123', 10)
-  const admin = await prisma.user.upsert({
+  await prisma.user.upsert({
+    where: { email: 'admin@lavrasnoticias.com' },
+    update: { password: hashedPassword },
+    create: {
+      email: 'admin@lavrasnoticias.com',
+      name: 'Matheus - Editor Chefe',
+      password: hashedPassword,
+      role: 'ADMIN',
+    },
+  })
+  await prisma.user.upsert({
     where: { email: 'admin@lavranoticias.com.br' },
     update: { password: hashedPassword },
     create: {
@@ -18,7 +28,7 @@ async function main() {
       role: 'ADMIN',
     },
   })
-  console.log('✅ Admin user ready: admin@lavranoticias.com.br / admin123')
+  console.log('✅ Admin user ready: admin@lavrasnoticias.com / admin123')
 
   // 2. Categories
   const categoriesData = [
