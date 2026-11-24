@@ -7,8 +7,8 @@ import NewsSubmissionForm from '@/components/home/NewsSubmissionForm'
 import Link from 'next/link'
 import { Briefcase, ArrowRight, MessageCircle } from 'lucide-react'
 
-// Revalidate on server every 30 seconds
-export const revalidate = 30
+// Always fetch fresh posts/events from DB
+export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
   const [featuredPost, sidebarPosts, manchetes, events] = await Promise.all([

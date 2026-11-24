@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { formatArticleHtml } from '@/lib/formatArticleHtml'
 import {
   ArrowLeft,
   Save,
@@ -522,8 +523,8 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
                   </p>
                 )}
                 <div
-                  className="font-serif text-base text-slate-800 leading-relaxed text-justify space-y-3 [&>p]:leading-relaxed [&>h2]:font-archivo-black [&>h2]:text-xl [&>h2]:mt-5 [&>h2]:mb-2 [&>h3]:font-serif [&>h3]:font-bold [&>h3]:text-lg [&>h3]:mt-4 [&>h3]:mb-2 [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-3 [&>blockquote]:italic [&>ul]:list-disc [&>ul]:pl-5"
-                  dangerouslySetInnerHTML={{ __html: content || '<p className="text-slate-400 italic">O conteúdo aparecerá formatado aqui...</p>' }}
+                  className="font-serif text-base text-slate-800 leading-relaxed text-justify space-y-3 [&>p]:leading-relaxed [&>h2]:font-archivo-black [&>h2]:text-xl [&>h2]:mt-5 [&>h2]:mb-2 [&>h2]:text-left [&>h3]:font-serif [&>h3]:font-bold [&>h3]:text-lg [&>h3]:mt-4 [&>h3]:mb-2 [&>h3]:text-left [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-3 [&>blockquote]:italic [&>ul]:list-disc [&>ul]:pl-5 [&_img]:w-full [&_img]:rounded"
+                  dangerouslySetInnerHTML={{ __html: content ? formatArticleHtml(content) : '<p class="text-slate-400 italic">O conteúdo aparecerá formatado aqui...</p>' }}
                 />
               </div>
             )}

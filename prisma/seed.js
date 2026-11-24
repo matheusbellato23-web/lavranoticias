@@ -10,7 +10,7 @@ async function main() {
   const hashedPassword = await bcrypt.hash('admin123', 10)
   const admin = await prisma.user.upsert({
     where: { email: 'admin@lavrasnoticias.com' },
-    update: { password: hashedPassword },
+    update: {},
     create: {
       email: 'admin@lavrasnoticias.com',
       name: 'Matheus - Editor Chefe',
@@ -20,7 +20,7 @@ async function main() {
   })
   await prisma.user.upsert({
     where: { email: 'admin@lavranoticias.com.br' },
-    update: { password: hashedPassword },
+    update: {},
     create: {
       email: 'admin@lavranoticias.com.br',
       name: 'Matheus - Editor Chefe',
@@ -50,16 +50,25 @@ async function main() {
     { name: 'Histórias', slug: 'historias', order: 16 },
   ]
 
+  const existingCategories = await prisma.category.count()
   const categories = {}
-  for (const cat of categoriesData) {
-    const created = await prisma.category.upsert({
-      where: { slug: cat.slug },
-      update: { name: cat.name, order: cat.order },
-      create: cat,
-    })
-    categories[cat.slug] = created
+  if (existingCategories === 0) {
+    for (const cat of categoriesData) {
+      const created = await prisma.category.upsert({
+        where: { slug: cat.slug },
+        update: { name: cat.name, order: cat.order },
+        create: cat,
+      })
+      categories[cat.slug] = created
+    }
+    console.log(`✅ ${categoriesData.length} categories synced`)
+  } else {
+    const allCats = await prisma.category.findMany()
+    for (const cat of allCats) {
+      categories[cat.slug] = cat
+    }
+    console.log(`⏭️ Categories already present (${existingCategories}), skipping overwrite`)
   }
-  console.log(`✅ ${categoriesData.length} categories synced`)
 
   // 3. Posts with exact real titles, excerpts, and local downloaded images
   const posts = [
@@ -173,34 +182,39 @@ async function main() {
     },
   ]
 
-  for (const p of posts) {
-    const category = categories[p.categorySlug]
-    await prisma.post.upsert({
-      where: { slug: p.slug },
-      update: {
-        title: p.title,
-        excerpt: p.excerpt,
-        content: p.content,
-        coverImage: p.coverImage,
-        featured: p.featured,
-        categoryId: category?.id,
-        userId: admin.id,
-      },
-      create: {
-        title: p.title,
-        slug: p.slug,
-        excerpt: p.excerpt,
-        content: p.content,
-        coverImage: p.coverImage,
-        featured: p.featured,
-        published: true,
-        publishedAt: new Date(),
-        categoryId: category?.id,
-        userId: admin.id,
-      },
-    })
+  const existingPosts = await prisma.post.count()
+  if (existingPosts === 0) {
+    for (const p of posts) {
+      const category = categories[p.categorySlug]
+      await prisma.post.upsert({
+        where: { slug: p.slug },
+        update: {
+          title: p.title,
+          excerpt: p.excerpt,
+          content: p.content,
+          coverImage: p.coverImage,
+          featured: p.featured,
+          categoryId: category?.id,
+          userId: admin.id,
+        },
+        create: {
+          title: p.title,
+          slug: p.slug,
+          excerpt: p.excerpt,
+          content: p.content,
+          coverImage: p.coverImage,
+          featured: p.featured,
+          published: true,
+          publishedAt: new Date(),
+          categoryId: category?.id,
+          userId: admin.id,
+        },
+      })
+    }
+    console.log(`✅ ${posts.length} authentic posts synced`)
+  } else {
+    console.log(`⏭️ Posts already present (${existingPosts}), preserving database`)
   }
-  console.log(`✅ ${posts.length} authentic posts synced`)
 
   // 4. Events
   const events = [
@@ -227,11 +241,13 @@ async function main() {
     },
   ]
 
-  await prisma.event.deleteMany({})
-  for (const ev of events) {
-    await prisma.event.create({ data: ev })
+  const existingEvents = await prisma.event.count()
+  if (existingEvents === 0) {
+    for (const ev of events) {
+      await prisma.event.create({ data: ev })
+    }
+    console.log(`✅ ${events.length} events seeded`)
   }
-  console.log(`✅ ${events.length} events seeded`)
 
   // 5. Jobs
   const jobs = [
@@ -264,11 +280,13 @@ async function main() {
     },
   ]
 
-  await prisma.job.deleteMany({})
-  for (const j of jobs) {
-    await prisma.job.create({ data: j })
+  const existingJobs = await prisma.job.count()
+  if (existingJobs === 0) {
+    for (const j of jobs) {
+      await prisma.job.create({ data: j })
+    }
+    console.log(`✅ ${jobs.length} jobs seeded`)
   }
-  console.log(`✅ ${jobs.length} jobs seeded`)
 
   // 6. Ads (seed initial campaign only if none exist yet)
   const existingAds = await prisma.ad.count()

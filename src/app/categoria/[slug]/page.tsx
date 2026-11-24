@@ -7,7 +7,7 @@ import Footer from '@/components/layout/Footer'
 import AdBanner from '@/components/ui/AdBanner'
 import type { Metadata } from 'next'
 
-export const revalidate = 30
+export const dynamic = 'force-dynamic'
 
 interface CategoryPageProps {
   params: {

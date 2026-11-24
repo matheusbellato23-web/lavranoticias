@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma db push && node prisma/seed.js && next build",
-    "start": "prisma db push --skip-generate && node prisma/seed.js && next start",
+    "build": "node prisma/prepare-db.js && prisma generate && prisma db push && node prisma/seed.js && next build",
+    "start": "node prisma/prepare-db.js && prisma db push --skip-generate && node prisma/seed.js && next start",
     "postinstall": "prisma generate",
     "lint": "next lint"
   },

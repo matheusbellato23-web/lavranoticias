@@ -5,9 +5,10 @@ import Topbar from '@/components/layout/Topbar'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import AdBanner from '@/components/ui/AdBanner'
+import { formatArticleHtml } from '@/lib/formatArticleHtml'
 import type { Metadata } from 'next'
 
-export const revalidate = 30
+export const dynamic = 'force-dynamic'
 
 interface ArticlePageProps {
   params: {
@@ -71,13 +72,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   })
 
   const rawContent = post.content || post.excerpt || ''
-  const hasHtmlMarkup = /<(p|h2|h3|strong|em|blockquote|ul|ol|figure|img|span|div|br)\b/i.test(rawContent)
-  const paragraphs = hasHtmlMarkup
-    ? []
-    : rawContent
-        .split('\n\n')
-        .map((p) => p.trim())
-        .filter(Boolean)
+  const formattedHtml = formatArticleHtml(rawContent)
 
   return (
     <div className="min-h-screen bg-background font-sans text-foreground">
@@ -132,18 +127,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           )}
 
           {/* Texto contínuo da matéria justificado e com suporte completo a formatação e fotos */}
-          {hasHtmlMarkup ? (
-            <div
-              className="mt-6 space-y-4 font-serif text-lg leading-relaxed text-justify text-foreground [&>p]:leading-relaxed [&>h2]:font-display [&>h2]:text-2xl [&>h2]:mt-8 [&>h2]:mb-3 [&>h2]:text-left [&>h3]:font-serif [&>h3]:font-bold [&>h3]:text-xl [&>h3]:mt-6 [&>h3]:mb-2 [&>h3]:text-left [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-muted-foreground [&>ul]:list-disc [&>ul]:pl-6 [&>ol]:list-decimal [&>ol]:pl-6 [&_img]:w-full [&_img]:rounded [&_img]:my-2"
-              dangerouslySetInnerHTML={{ __html: rawContent }}
-            />
-          ) : (
-            <div className="mt-6 space-y-4 font-serif text-lg leading-relaxed text-justify text-foreground">
-              {paragraphs.map((p, idx) => (
-                <p key={idx}>{p}</p>
-              ))}
-            </div>
-          )}
+          <div
+            className="mt-6 space-y-4 font-serif text-lg leading-relaxed text-justify text-foreground [&>p]:leading-relaxed [&>h2]:font-display [&>h2]:text-2xl [&>h2]:mt-8 [&>h2]:mb-3 [&>h2]:text-left [&>h3]:font-serif [&>h3]:font-bold [&>h3]:text-xl [&>h3]:mt-6 [&>h3]:mb-2 [&>h3]:text-left [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-muted-foreground [&>ul]:list-disc [&>ul]:pl-6 [&>ol]:list-decimal [&>ol]:pl-6 [&_img]:w-full [&_img]:rounded [&_img]:my-2"
+            dangerouslySetInnerHTML={{ __html: formattedHtml }}
+          />
 
           <Link
             href="/"
