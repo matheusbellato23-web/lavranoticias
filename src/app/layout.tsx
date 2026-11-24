@@ -28,7 +28,12 @@ export const metadata: Metadata = {
   title: 'Lavras Notícia – A informação do nosso bairro',
   description: 'Jornal digital comunitário e independente do bairro Lavras — Guarulhos, São Paulo.',
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.png', type: 'image/png' },
+      { url: '/favicon.ico', type: 'image/x-icon' },
+    ],
+    shortcut: '/favicon.png',
+    apple: '/favicon.png',
   },
 }
 
@@ -40,6 +45,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${archivo.variable} ${archivoBlack.variable} ${sourceSerif.variable}`}>
       <head>
+        <link rel="icon" href="/favicon.png" type="image/png" />
+        <link rel="shortcut icon" href="/favicon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/favicon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
