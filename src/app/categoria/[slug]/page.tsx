@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Topbar from '@/components/layout/Topbar'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
+import AdBanner from '@/components/ui/AdBanner'
 import type { Metadata } from 'next'
 
 export const revalidate = 30
@@ -86,6 +87,9 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         <h1 className="mt-6 border-b-2 border-foreground pb-4 font-display text-3xl uppercase break-words md:text-4xl text-foreground">
           {category.name}
         </h1>
+
+        {/* Publicidade Rotativa (970x250 / 728x90 / 300x250) acima do grid com fotos */}
+        <AdBanner position="top" format="rotativo" />
 
         {category.posts.length === 0 ? (
           <div className="min-h-64 border-b border-border py-16">

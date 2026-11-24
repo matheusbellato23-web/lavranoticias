@@ -53,8 +53,8 @@ export default async function HomePage() {
       <Header />
 
       <main className="mx-auto max-w-6xl px-4 py-8 w-full flex-1">
-        {/* Top Leaderboard Ad with generous margin */}
-        <AdBanner position="top" />
+        {/* Top Leaderboard / Billboard Ad (970x250 desktop / 728x90 tablet / 300x250 mobile) */}
+        <AdBanner position="top" format="rotativo" />
 
         {/* HERO SECTION: 2 cols featured + 1 col Últimas Notícias */}
         <section className="grid gap-8 lg:grid-cols-3">
@@ -87,44 +87,49 @@ export default async function HomePage() {
             </article>
           )}
 
-          {/* Aside: Últimas notícias */}
-          <aside>
-            <h3 className="border-b-2 border-foreground pb-2 font-display text-lg uppercase text-foreground">
-              Últimas notícias
-            </h3>
-            <ul className="divide-y divide-border">
-              {sidebarPosts.map((post) => (
-                <li key={post.id} className="py-4">
-                  {post.coverImage && (
-                    <Link href={`/noticia/${post.slug}`}>
-                      <img
-                        src={post.coverImage}
-                        alt={post.title}
-                        loading="lazy"
-                        className="mb-2 aspect-[16/9] w-full rounded object-cover shadow-sm"
-                      />
+          {/* Aside: Últimas notícias + Formato 300x250 perto da foto de destaque */}
+          <aside className="space-y-6">
+            <div>
+              <h3 className="border-b-2 border-foreground pb-2 font-display text-lg uppercase text-foreground">
+                Últimas notícias
+              </h3>
+              <ul className="divide-y divide-border">
+                {sidebarPosts.map((post) => (
+                  <li key={post.id} className="py-4">
+                    {post.coverImage && (
+                      <Link href={`/noticia/${post.slug}`}>
+                        <img
+                          src={post.coverImage}
+                          alt={post.title}
+                          loading="lazy"
+                          className="mb-2 aspect-[16/9] w-full rounded object-cover shadow-sm"
+                        />
+                      </Link>
+                    )}
+                    <span className="font-sans text-[11px] font-bold uppercase tracking-widest text-accent">
+                      {post.category?.name || 'Geral'}
+                    </span>
+                    <Link
+                      className="mt-1 block font-serif text-lg font-semibold leading-snug hover:text-primary text-foreground"
+                      href={`/noticia/${post.slug}`}
+                    >
+                      {post.title}
                     </Link>
-                  )}
-                  <span className="font-sans text-[11px] font-bold uppercase tracking-widest text-accent">
-                    {post.category?.name || 'Geral'}
-                  </span>
-                  <Link
-                    className="mt-1 block font-serif text-lg font-semibold leading-snug hover:text-primary text-foreground"
-                    href={`/noticia/${post.slug}`}
-                  >
-                    {post.title}
-                  </Link>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(post.publishedAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(post.publishedAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Publicidade 300x250 posicionada próxima à foto principal */}
+            <AdBanner position="sidebar" format="rectangle" label="PUBLICIDADE" />
           </aside>
         </section>
 
-        {/* Mid Leaderboard Ad */}
-        <AdBanner position="mid" />
+        {/* Mid Leaderboard Ad (diretamente abaixo do bloco com fotos e antes de Manchetes) */}
+        <AdBanner position="mid" format="leaderboard" />
 
         {/* MANCHETES LOCAIS */}
         <section className="mt-6">
@@ -309,9 +314,6 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
-
-        {/* Bottom Leaderboard Ad */}
-        <AdBanner position="bottom" />
       </main>
 
       <Footer />

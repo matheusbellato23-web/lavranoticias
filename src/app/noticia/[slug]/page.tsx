@@ -120,22 +120,21 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           </p>
 
           {post.coverImage && (
-            <img
-              src={post.coverImage}
-              alt={post.title}
-              className="mt-6 w-full rounded object-cover aspect-[16/10]"
-              loading="eager"
-            />
+            <div className="mt-6 space-y-3">
+              <img
+                src={post.coverImage}
+                alt={post.title}
+                className="w-full rounded object-cover aspect-[16/10]"
+                loading="eager"
+              />
+              {/* Publicidade rotativa colada diretamente embaixo da foto da matéria */}
+              <AdBanner position="content" format="leaderboard" label="PUBLICIDADE" />
+            </div>
           )}
 
+          {/* Texto contínuo da matéria sem interrupções */}
           <div className="mt-6 space-y-4 font-serif text-lg leading-relaxed text-foreground">
-            {paragraphs.slice(0, mid).map((p, idx) => (
-              <p key={idx}>{p}</p>
-            ))}
-            <div className="py-4">
-              <AdBanner position="mid" label="PUBLICIDADE" />
-            </div>
-            {paragraphs.slice(mid).map((p, idx) => (
+            {paragraphs.map((p, idx) => (
               <p key={idx}>{p}</p>
             ))}
           </div>
