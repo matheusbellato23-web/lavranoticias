@@ -211,20 +211,8 @@ export default async function HomePage() {
           </div>
 
           {/* 3. Card Publicidade Vertical 300x250 */}
-          <div className="flex items-center">
-            <figure className="mx-auto w-full" style={{ maxWidth: '300px' }}>
-              <figcaption className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Publicidade
-              </figcaption>
-              <img
-                src="/assets/programa-formiguinha-300x250.jpg"
-                alt="Programa Formiguinha — Nós ligamos os pontos!"
-                width={300}
-                height={250}
-                loading="lazy"
-                className="h-auto w-full rounded shadow-sm"
-              />
-            </figure>
+          <div className="flex items-center justify-center">
+            <AdBanner format="rectangle" position="sidebar" label="Publicidade" />
           </div>
         </section>
 
@@ -256,20 +244,8 @@ export default async function HomePage() {
           <h3 className="border-b-2 border-foreground pb-2 font-display text-lg uppercase text-foreground">
             Comércio local
           </h3>
-          <div className="mt-6">
-            <figure className="mx-auto w-full" style={{ maxWidth: '300px' }}>
-              <figcaption className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Publicidade
-              </figcaption>
-              <img
-                src="/assets/programa-formiguinha-300x250.jpg"
-                alt="Programa Formiguinha — Nós ligamos os pontos!"
-                width={300}
-                height={250}
-                loading="lazy"
-                className="h-auto w-full rounded shadow-sm"
-              />
-            </figure>
+          <div className="mt-6 flex justify-center">
+            <AdBanner format="rectangle" position="sidebar" label="Publicidade" />
           </div>
         </section>
 
