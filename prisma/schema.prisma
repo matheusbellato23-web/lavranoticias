@@ -89,9 +89,13 @@ model Lead {
 model Ad {
   id        String   @id @default(cuid())
   title     String
+  altText   String?
   imageUrl  String?
+  img970    String?
+  img728    String?
+  img300    String?
   linkUrl   String?
-  position  String   @default("top") // top, mid, bottom, sidebar
+  position  String   @default("rotativo") // rotativo, top, mid, sidebar
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

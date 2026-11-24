@@ -270,6 +270,24 @@ async function main() {
   }
   console.log(`✅ ${jobs.length} jobs seeded`)
 
+  // 6. Ads (seed initial campaign only if none exist yet)
+  const existingAds = await prisma.ad.count()
+  if (existingAds === 0) {
+    await prisma.ad.create({
+      data: {
+        title: 'Programa Formiguinha — Prefeitura de Guarulhos',
+        altText: 'Programa Formiguinha — Nós ligamos os pontos! Novo transporte circular intrabairro de Guarulhos - Prefeitura de Guarulhos',
+        linkUrl: 'https://www.guarulhos.sp.gov.br/',
+        img970: '/assets/programa-formiguinha-970x250.jpg',
+        img728: '/assets/programa-formiguinha-728x90.jpg',
+        img300: '/assets/programa-formiguinha-300x250.jpg',
+        position: 'rotativo',
+        active: true,
+      },
+    })
+    console.log('✅ Initial ad campaign seeded')
+  }
+
   console.log('🎉 Seed complete!')
 }
 
