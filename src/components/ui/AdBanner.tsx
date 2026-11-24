@@ -101,8 +101,8 @@ export default function AdBanner({
       .then((res) => res.json())
       .then((data: ApiAdRecord[]) => {
         if (!active || !Array.isArray(data)) return
-        const mapped: AdItem[] = data
-          .map((item) => {
+        const mapped = data
+          .map((item): AdItem | null => {
             const fallback = item.img970 || item.img728 || item.img300 || item.imageUrl || ''
             if (!fallback) return null
             return {

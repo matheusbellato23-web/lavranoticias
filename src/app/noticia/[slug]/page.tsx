@@ -126,9 +126,9 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </div>
           )}
 
-          {/* Texto contínuo da matéria justificado e com suporte completo a formatação e fotos */}
+          {/* Texto contínuo da matéria justificado e com suporte completo a formatação, links, cores e fotos */}
           <div
-            className="mt-6 space-y-4 font-serif text-lg leading-relaxed text-justify text-foreground [&>p]:leading-relaxed [&>h2]:font-display [&>h2]:text-2xl [&>h2]:mt-8 [&>h2]:mb-3 [&>h2]:text-left [&>h3]:font-serif [&>h3]:font-bold [&>h3]:text-xl [&>h3]:mt-6 [&>h3]:mb-2 [&>h3]:text-left [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-muted-foreground [&>ul]:list-disc [&>ul]:pl-6 [&>ol]:list-decimal [&>ol]:pl-6 [&_img]:w-full [&_img]:rounded [&_img]:my-2"
+            className="mt-6 space-y-4 font-serif text-lg leading-relaxed text-justify text-foreground [&>p]:leading-relaxed [&>h2]:font-display [&>h2]:text-2xl [&>h2]:mt-8 [&>h2]:mb-3 [&>h2]:text-left [&>h3]:font-serif [&>h3]:font-bold [&>h3]:text-xl [&>h3]:mt-6 [&>h3]:mb-2 [&>h3]:text-left [&>h4]:font-serif [&>h4]:font-bold [&>h4]:text-lg [&>h4]:mt-4 [&>h4]:mb-1.5 [&>h4]:text-left [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-muted-foreground [&>ul]:list-disc [&>ul]:pl-6 [&>ol]:list-decimal [&>ol]:pl-6 [&_a]:text-primary [&_a]:underline [&_a]:hover:opacity-80 [&_mark]:px-1 [&_mark]:rounded [&_img]:w-full [&_img]:rounded [&_img]:my-4 [&_hr]:my-6 [&_hr]:border-border"
             dangerouslySetInnerHTML={{ __html: formattedHtml }}
           />
 
