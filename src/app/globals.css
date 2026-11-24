@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    @apply bg-white text-editorial-black antialiased selection:bg-primary selection:text-white;
+  }
+}
+
+@layer components {
+  .editorial-border {
+    @apply border-b-4 border-editorial-black;
+  }
+  .editorial-border-2 {
+    @apply border-b-2 border-editorial-black;
+  }
+  .category-badge {
+    @apply inline-block text-xs font-archivo font-bold uppercase tracking-wider text-primary hover:text-primary-dark transition-colors;
+  }
+}
