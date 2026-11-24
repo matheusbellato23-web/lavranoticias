@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -16,7 +16,11 @@ import {
   Italic,
   Quote,
   List,
-  Sparkles,
+  Upload,
+  Loader2,
+  AlignJustify,
+  AlignLeft,
+  AlignCenter,
 } from 'lucide-react'
 
 interface CategoryOption {
@@ -43,8 +47,11 @@ interface PostEditorProps {
 
 export default function PostEditorForm({ initialData = {}, isEditing = false }: PostEditorProps) {
   const router = useRouter()
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [loading, setLoading] = useState(false)
+  const [uploadingBody, setUploadingBody] = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit')
@@ -82,23 +89,72 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
     }
   }
 
-  // Formatting helpers for content
-  const insertFormatting = (prefix: string, suffix: string = '') => {
-    const textarea = document.getElementById('post-content-textarea') as HTMLTextAreaElement
+  // Formatting helpers for content (preserving cursor & scroll position)
+  const insertFormatting = (prefix: string, suffix: string = '', placeholder: string = 'texto') => {
+    const textarea = textareaRef.current
     if (!textarea) return
 
     const start = textarea.selectionStart
     const end = textarea.selectionEnd
+    const savedScrollTop = textarea.scrollTop
     const selected = textarea.value.substring(start, end)
-    const replacement = `${prefix}${selected || 'texto'}${suffix}`
+    const inner = selected || placeholder
+    const replacement = `${prefix}${inner}${suffix}`
 
     const updated = textarea.value.substring(0, start) + replacement + textarea.value.substring(end)
     setContent(updated)
 
-    setTimeout(() => {
-      textarea.focus()
-      textarea.setSelectionRange(start + prefix.length, start + prefix.length + (selected ? selected.length : 5))
-    }, 50)
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.focus({ preventScroll: true })
+      el.scrollTop = savedScrollTop
+      el.setSelectionRange(start + prefix.length, start + prefix.length + inner.length)
+    })
+  }
+
+  const uploadImageFile = async (file: File): Promise<string | null> => {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
+    const data = await res.json()
+    if (!res.ok || !data.url) {
+      alert(data.error || 'Erro ao enviar imagem')
+      return null
+    }
+    return data.url
+  }
+
+  const handleBodyImageUpload = async (file: File | undefined) => {
+    if (!file) return
+    setUploadingBody(true)
+    try {
+      const url = await uploadImageFile(file)
+      if (!url) return
+      const caption = window.prompt('Legenda da foto (opcional — deixe em branco se não quiser):', '') || ''
+      const captionHtml = caption.trim()
+        ? `\n  <figcaption class="mt-2 text-center text-xs text-slate-500 italic">${caption.trim()}</figcaption>`
+        : ''
+      const figureHtml = `\n<figure class="my-6">\n  <img src="${url}" alt="${caption.trim() || 'Foto da matéria'}" class="w-full rounded object-cover" />${captionHtml}\n</figure>\n`
+      insertFormatting(figureHtml, '', '')
+    } catch {
+      alert('Erro de conexão ao enviar foto')
+    } finally {
+      setUploadingBody(false)
+    }
+  }
+
+  const handleCoverImageUpload = async (file: File | undefined) => {
+    if (!file) return
+    setUploadingCover(true)
+    try {
+      const url = await uploadImageFile(file)
+      if (url) setCoverImage(url)
+    } catch {
+      alert('Erro de conexão ao enviar foto de capa')
+    } finally {
+      setUploadingCover(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -285,12 +341,12 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
 
               {/* Formatting quick buttons */}
               {activeTab === 'edit' && (
-                <div className="flex items-center gap-1 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     type="button"
                     onClick={() => insertFormatting('<h2>', '</h2>')}
                     className="p-1.5 text-slate-600 hover:bg-slate-100 rounded text-xs font-bold"
-                    title="Subtítulo H2"
+                    title="Título H2"
                   >
                     <Heading2 size={15} />
                   </button>
@@ -328,12 +384,113 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
                   </button>
                   <button
                     type="button"
+                    onClick={() => insertFormatting('<ul>\n  <li>', '</li>\n</ul>', 'Item da lista')}
+                    className="p-1.5 text-slate-600 hover:bg-slate-100 rounded"
+                    title="Lista"
+                  >
+                    <List size={15} />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => insertFormatting('<p>', '</p>')}
                     className="px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-100 rounded"
                     title="Parágrafo"
                   >
                     P
                   </button>
+
+                  <span className="h-4 w-px bg-slate-200 mx-0.5" />
+
+                  {/* Alinhamento */}
+                  <button
+                    type="button"
+                    onClick={() => insertFormatting('<p style="text-align: justify;">', '</p>')}
+                    className="p-1.5 text-slate-600 hover:bg-slate-100 rounded"
+                    title="Justificado"
+                  >
+                    <AlignJustify size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertFormatting('<p style="text-align: left;">', '</p>')}
+                    className="p-1.5 text-slate-600 hover:bg-slate-100 rounded"
+                    title="Alinhar à esquerda"
+                  >
+                    <AlignLeft size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertFormatting('<p style="text-align: center;">', '</p>')}
+                    className="p-1.5 text-slate-600 hover:bg-slate-100 rounded"
+                    title="Centralizar"
+                  >
+                    <AlignCenter size={15} />
+                  </button>
+
+                  <span className="h-4 w-px bg-slate-200 mx-0.5" />
+
+                  {/* Fonte e Tamanho */}
+                  <select
+                    aria-label="Tipo de fonte"
+                    defaultValue=""
+                    onChange={(e) => {
+                      if (!e.target.value) return
+                      insertFormatting(`<span style="font-family: ${e.target.value};">`, '</span>')
+                      e.target.value = ''
+                    }}
+                    className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700"
+                    title="Selecionar fonte"
+                  >
+                    <option value="">Fonte...</option>
+                    <option value="var(--font-source-serif), Georgia, serif">Jornal (Serifada)</option>
+                    <option value="var(--font-archivo), Arial, sans-serif">Moderna (Sem serifa)</option>
+                    <option value="var(--font-archivo-black), Impact, sans-serif">Destaque (Forte)</option>
+                  </select>
+
+                  <select
+                    aria-label="Tamanho da fonte"
+                    defaultValue=""
+                    onChange={(e) => {
+                      if (!e.target.value) return
+                      insertFormatting(`<span style="font-size: ${e.target.value};">`, '</span>')
+                      e.target.value = ''
+                    }}
+                    className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700"
+                    title="Selecionar tamanho"
+                  >
+                    <option value="">Tamanho...</option>
+                    <option value="0.875rem">Pequeno (14px)</option>
+                    <option value="1.125rem">Normal (18px)</option>
+                    <option value="1.35rem">Médio (22px)</option>
+                    <option value="1.65rem">Grande (26px)</option>
+                  </select>
+
+                  <span className="h-4 w-px bg-slate-200 mx-0.5" />
+
+                  {/* Inserir Foto no Corpo */}
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer rounded bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 text-[11px] font-bold transition-colors">
+                    {uploadingBody ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        <span>Enviando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon size={13} />
+                        <span>Inserir Foto</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      disabled={uploadingBody}
+                      onChange={(e) => {
+                        handleBodyImageUpload(e.target.files?.[0])
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
                 </div>
               )}
             </div>
@@ -341,16 +498,17 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
             {activeTab === 'edit' ? (
               <div>
                 <textarea
+                  ref={textareaRef}
                   id="post-content-textarea"
                   required
                   rows={14}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="Escreva aqui o conteúdo da notícia. Você pode usar tags HTML como <p>, <h2>, <strong>, etc..."
+                  placeholder="Escreva aqui o conteúdo da notícia. Use os botões acima para subtítulos, negrito, itálico, fontes, tamanhos e inserir fotos..."
                   className="w-full text-sm font-archivo text-slate-800 leading-relaxed p-3 rounded-lg border border-slate-300 focus:outline-none focus:border-blue-royal resize-y"
                 />
                 <p className="text-[11px] text-slate-400 mt-1.5">
-                  Dica: Quebre o texto em parágrafos com <code>&lt;p&gt;...&lt;/p&gt;</code> e intercale com subtítulos <code>&lt;h2&gt;...&lt;/h2&gt;</code> para leitura confortável.
+                  Dica: O texto da matéria já é exibido <strong>justificado</strong> por padrão no portal. Use <strong>Inserir Foto</strong> para colocar imagens entre os parágrafos.
                 </p>
               </div>
             ) : (
@@ -364,7 +522,7 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
                   </p>
                 )}
                 <div
-                  className="font-archivo text-sm text-slate-800 leading-relaxed space-y-3 [&>p]:leading-relaxed [&>h2]:font-archivo-black [&>h2]:text-lg [&>h2]:mt-4 [&>h2]:mb-2 [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-3 [&>blockquote]:italic"
+                  className="font-serif text-base text-slate-800 leading-relaxed text-justify space-y-3 [&>p]:leading-relaxed [&>h2]:font-archivo-black [&>h2]:text-xl [&>h2]:mt-5 [&>h2]:mb-2 [&>h3]:font-serif [&>h3]:font-bold [&>h3]:text-lg [&>h3]:mt-4 [&>h3]:mb-2 [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-3 [&>blockquote]:italic [&>ul]:list-disc [&>ul]:pl-5"
                   dangerouslySetInnerHTML={{ __html: content || '<p className="text-slate-400 italic">O conteúdo aparecerá formatado aqui...</p>' }}
                 />
               </div>
@@ -462,7 +620,34 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
 
             <div>
               <label className="block text-xs font-archivo font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                URL ou Caminho da Foto
+                Enviar Foto de Capa
+              </label>
+              <label className="flex items-center justify-center gap-2 w-full cursor-pointer rounded-lg bg-slate-50 border border-dashed border-slate-300 hover:border-primary hover:text-primary px-3 py-2.5 text-xs font-semibold text-slate-700 transition-colors mb-3">
+                {uploadingCover ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Enviando capa...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={14} />
+                    <span>Selecionar foto do computador</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  disabled={uploadingCover}
+                  onChange={(e) => {
+                    handleCoverImageUpload(e.target.files?.[0])
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+
+              <label className="block text-xs font-archivo font-bold uppercase tracking-wider text-slate-500 mb-1">
+                Ou cole a URL / Caminho
               </label>
               <input
                 type="text"
