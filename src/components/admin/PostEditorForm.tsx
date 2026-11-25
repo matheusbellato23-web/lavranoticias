@@ -232,7 +232,7 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
                 Slug (URL amigável) *
               </label>
               <div className="flex items-center text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                <span className="hidden sm:inline">lavrasnoticias.com.br/noticia/</span>
+                <span className="hidden sm:inline">lavrasnoticias.com/noticia/</span>
                 <input
                   type="text"
                   required

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentAdmin } from '@/lib/auth'
 
@@ -49,7 +50,17 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     if (content !== undefined) data.content = content
     if (coverImage !== undefined) data.coverImage = coverImage
     if (authorName !== undefined) data.authorName = authorName
-    if (categoryId !== undefined) data.categoryId = categoryId || null
+    if (categoryId !== undefined) {
+      if (categoryId) {
+        const cat = await prisma.category.findUnique({
+          where: { id: categoryId },
+          select: { id: true },
+        })
+        data.categoryId = cat?.id ?? null
+      } else {
+        data.categoryId = null
+      }
+    }
     if (featured !== undefined) data.featured = Boolean(featured)
     if (published !== undefined) {
       data.published = Boolean(published)
@@ -63,13 +74,20 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       data,
     })
 
+    revalidatePath('/')
+    revalidatePath(`/noticia/${updated.slug}`)
+    revalidatePath('/sitemap.xml')
+
     return NextResponse.json({ success: true, post: updated })
   } catch (error: any) {
     console.error('Update error:', error)
     if (error.code === 'P2002') {
       return NextResponse.json({ error: 'Já existe outro artigo com este slug.' }, { status: 409 })
     }
-    return NextResponse.json({ error: 'Erro ao atualizar artigo' }, { status: 500 })
+    return NextResponse.json(
+      { error: `Erro ao atualizar artigo${error?.code ? ` (${error.code})` : ''}` },
+      { status: 500 }
+    )
   }
 }
 
