@@ -5,7 +5,6 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
-import Image from '@tiptap/extension-image'
 import TextAlign from '@tiptap/extension-text-align'
 import TextStyle from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
@@ -39,9 +38,27 @@ import {
   Loader2,
   Code,
   X,
+  Trash2,
+  FileText,
 } from 'lucide-react'
 
-// Custom TipTap FontSize extension riding on TextStyle
+type ImageAlign = 'left' | 'right' | 'center' | 'full'
+
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    editorialImage: {
+      setImage: (options: {
+        src: string
+        alt?: string
+        caption?: string | null
+        align?: ImageAlign
+        width?: string | null
+      }) => ReturnType
+    }
+  }
+}
+
+// Custom TipTap FontSize extension riding on TextStyle (supports micro 9px/10px up to 32px)
 const FontSize = Extension.create({
   name: 'fontSize',
   addOptions() {
@@ -56,7 +73,10 @@ const FontSize = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            parseHTML: (element) => element.style.fontSize?.replace(/['"]+/g, '') || null,
+            parseHTML: (element) => {
+              if (element.tagName === 'SMALL') return '10px'
+              return element.style.fontSize?.replace(/['"]+/g, '') || null
+            },
             renderHTML: (attributes) => {
               if (!attributes.fontSize) return {}
               return { style: `font-size: ${attributes.fontSize}` }
@@ -76,6 +96,136 @@ const FontSize = Extension.create({
         () =>
         ({ chain }: any) =>
           chain().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run(),
+    } as any
+  },
+})
+
+function detectAlignFromElement(el: HTMLElement): ImageAlign {
+  const explicit = el.getAttribute('data-align')
+  if (explicit === 'left' || explicit === 'right' || explicit === 'center' || explicit === 'full') {
+    return explicit
+  }
+  const cls = el.className || ''
+  if (cls.includes('alignleft') || el.style?.float === 'left') return 'left'
+  if (cls.includes('alignright') || el.style?.float === 'right') return 'right'
+  if (cls.includes('aligncenter')) return 'center'
+  return 'full'
+}
+
+function normalizeWidthAttr(rawWidth: string | null | undefined, align: ImageAlign): string | null {
+  if (align === 'full') return null
+  if (!rawWidth) {
+    return align === 'left' || align === 'right' ? '45%' : null
+  }
+  const trimmed = rawWidth.trim()
+  if (!trimmed) return null
+  if (/^\d+$/.test(trimmed)) return `${trimmed}px`
+  return trimmed
+}
+
+// Editorial Image / Figure node supporting WordPress-style left/right floats, custom widths, and captions
+const EditorialImageNode = Node.create({
+  name: 'image',
+  group: 'block',
+  atom: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      src: { default: null },
+      alt: { default: null },
+      caption: { default: null },
+      align: { default: 'full' },
+      width: { default: null },
+    }
+  },
+  parseHTML() {
+    return [
+      {
+        tag: 'figure',
+        getAttrs: (node) => {
+          const el = node as HTMLElement
+          const img = el.querySelector('img')
+          if (!img) return false
+          const src = img.getAttribute('src')
+          if (!src) return false
+          const align = detectAlignFromElement(el) !== 'full'
+            ? detectAlignFromElement(el)
+            : detectAlignFromElement(img)
+          const rawW = el.style?.width || img.style?.width || img.getAttribute('width')
+          const caption = el.querySelector('figcaption')?.textContent?.trim() || null
+          return {
+            src,
+            alt: img.getAttribute('alt') || caption || null,
+            caption,
+            align,
+            width: normalizeWidthAttr(rawW, align),
+          }
+        },
+      },
+      {
+        tag: 'img[src]',
+        getAttrs: (node) => {
+          const el = node as HTMLElement
+          const src = el.getAttribute('src')
+          if (!src) return false
+          const align = detectAlignFromElement(el)
+          const rawW = el.style?.width || el.getAttribute('width')
+          return {
+            src,
+            alt: el.getAttribute('alt') || null,
+            caption: null,
+            align,
+            width: normalizeWidthAttr(rawW, align),
+          }
+        },
+      },
+    ]
+  },
+  renderHTML({ HTMLAttributes }) {
+    const align: ImageAlign = HTMLAttributes.align || 'full'
+    const width: string | null = HTMLAttributes.width || null
+    const caption: string | null = HTMLAttributes.caption || null
+    const style = width && align !== 'full' ? `width: ${width};` : undefined
+
+    return [
+      'figure',
+      {
+        class: 'article-figure',
+        'data-align': align,
+        ...(style ? { style } : {}),
+      },
+      [
+        'img',
+        {
+          src: HTMLAttributes.src,
+          alt: HTMLAttributes.alt || caption || 'Foto da matéria',
+        },
+      ],
+      ...(caption ? [['figcaption', {}, caption]] : []),
+    ]
+  },
+  addCommands() {
+    return {
+      setImage:
+        (options: {
+          src: string
+          alt?: string
+          caption?: string | null
+          align?: ImageAlign
+          width?: string | null
+        }) =>
+        ({ commands }: any) => {
+          return commands.insertContent({
+            type: this.name,
+            attrs: {
+              src: options.src,
+              alt: options.alt || null,
+              caption: options.caption || null,
+              align: options.align || 'full',
+              width: options.width || null,
+            },
+          })
+        },
     } as any
   },
 })
@@ -154,7 +304,6 @@ const VideoEmbedNode = Node.create({
 function resolveVideoInput(rawUrl: string): { kind: 'video' | 'embed'; src: string } {
   const url = rawUrl.trim()
 
-  // YouTube (watch, youtu.be, shorts, live, embed)
   const ytMatch = url.match(
     /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/i
   )
@@ -162,13 +311,11 @@ function resolveVideoInput(rawUrl: string): { kind: 'video' | 'embed'; src: stri
     return { kind: 'embed', src: `https://www.youtube.com/embed/${ytMatch[1]}` }
   }
 
-  // Vimeo
   const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i)
   if (vimeoMatch) {
     return { kind: 'embed', src: `https://player.vimeo.com/video/${vimeoMatch[1]}` }
   }
 
-  // Instagram post / reel
   const igMatch = url.match(/instagram\.com\/(p|reel|tv)\/([a-zA-Z0-9_-]+)/i)
   if (igMatch) {
     return { kind: 'embed', src: `https://www.instagram.com/${igMatch[1]}/${igMatch[2]}/embed` }
@@ -176,51 +323,6 @@ function resolveVideoInput(rawUrl: string): { kind: 'video' | 'embed'; src: stri
 
   return { kind: 'video', src: url }
 }
-
-interface RichTextEditorProps {
-  value: string
-  onChange: (html: string) => void
-}
-
-const FONT_FAMILIES = [
-  { label: 'Jornal (Serifada)', value: 'var(--font-source-serif), Georgia, serif' },
-  { label: 'Moderna (Sem serifa)', value: 'var(--font-archivo), Arial, sans-serif' },
-  { label: 'Destaque (Forte)', value: 'var(--font-archivo-black), Impact, sans-serif' },
-  { label: 'Clássica (Georgia)', value: 'Georgia, serif' },
-  { label: 'Padrão (Arial)', value: 'Arial, Helvetica, sans-serif' },
-]
-
-const FONT_SIZES = [
-  { label: '14 px (Pequeno)', value: '14px' },
-  { label: '16 px (Normal)', value: '16px' },
-  { label: '18 px (Jornal)', value: '18px' },
-  { label: '20 px (Médio)', value: '20px' },
-  { label: '24 px (Grande)', value: '24px' },
-  { label: '28 px (Destaque)', value: '28px' },
-  { label: '32 px (Manchete)', value: '32px' },
-]
-
-const TEXT_COLORS = [
-  '#0f172a',
-  '#0038a8',
-  '#c8102e',
-  '#475569',
-  '#15803d',
-  '#b45309',
-  '#7c3aed',
-  '#ffffff',
-]
-
-const BG_COLORS = [
-  '#fef08a',
-  '#dbeafe',
-  '#fee2e2',
-  '#dcfce7',
-  '#f1f5f9',
-  '#0038a8',
-  '#c8102e',
-  '#0f172a',
-]
 
 async function uploadImageToServer(file: File): Promise<string | null> {
   try {
@@ -242,21 +344,6 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
-}
-
-function dataUrlToFile(dataUrl: string, index: number): File | null {
-  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/)
-  if (!match) return null
-  const mime = match[1]
-  const b64 = match[2]
-  const binStr = atob(b64)
-  const len = binStr.length
-  const bytes = new Uint8Array(len)
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binStr.charCodeAt(i)
-  }
-  const ext = mime.split('/')[1]?.replace(/[^a-z0-9]/gi, '') || 'png'
-  return new File([bytes], `pasted-image-${Date.now()}-${index}.${ext}`, { type: mime })
 }
 
 async function processPastedHtmlImages(html: string, fallbackFiles: File[]): Promise<string> {
@@ -285,12 +372,85 @@ async function processPastedHtmlImages(html: string, fallbackFiles: File[]): Pro
   return doc.body.innerHTML
 }
 
+function dataUrlToFile(dataUrl: string, index: number): File | null {
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/)
+  if (!match) return null
+  const mime = match[1]
+  const b64 = match[2]
+  const binStr = atob(b64)
+  const len = binStr.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binStr.charCodeAt(i)
+  }
+  const ext = mime.split('/')[1]?.replace(/[^a-z0-9]/gi, '') || 'png'
+  return new File([bytes], `pasted-image-${Date.now()}-${index}.${ext}`, { type: mime })
+}
+
+interface RichTextEditorProps {
+  value: string
+  onChange: (html: string) => void
+}
+
+const FONT_FAMILIES = [
+  { label: 'Jornal (Serifada)', value: 'var(--font-source-serif), Georgia, serif' },
+  { label: 'Moderna (Sem serifa)', value: 'var(--font-archivo), Arial, sans-serif' },
+  { label: 'Destaque (Forte)', value: 'var(--font-archivo-black), Impact, sans-serif' },
+  { label: 'Clássica (Georgia)', value: 'Georgia, serif' },
+  { label: 'Padrão (Arial)', value: 'Arial, Helvetica, sans-serif' },
+]
+
+const FONT_SIZES = [
+  { label: '9 px (Micro / Fonte)', value: '9px' },
+  { label: '10 px (Crédito)', value: '10px' },
+  { label: '12 px (Legenda)', value: '12px' },
+  { label: '14 px (Pequeno)', value: '14px' },
+  { label: '16 px (Normal)', value: '16px' },
+  { label: '18 px (Jornal)', value: '18px' },
+  { label: '20 px (Médio)', value: '20px' },
+  { label: '24 px (Grande)', value: '24px' },
+  { label: '28 px (Destaque)', value: '28px' },
+  { label: '32 px (Manchete)', value: '32px' },
+]
+
+const TEXT_COLORS = [
+  '#0f172a',
+  '#0038a8',
+  '#c8102e',
+  '#64748b',
+  '#15803d',
+  '#b45309',
+  '#7c3aed',
+  '#ffffff',
+]
+
+const BG_COLORS = [
+  '#fef08a',
+  '#dbeafe',
+  '#fee2e2',
+  '#dcfce7',
+  '#f1f5f9',
+  '#0038a8',
+  '#c8102e',
+  '#0f172a',
+]
+
+const IMAGE_WIDTH_PRESETS = [
+  { label: 'Logo / Mini', value: '190px' },
+  { label: 'Pequena (35%)', value: '35%' },
+  { label: 'Média (48%)', value: '48%' },
+  { label: 'Grande (68%)', value: '68%' },
+  { label: 'Inteira (100%)', value: '100%' },
+]
+
 export default function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const [showLinkBox, setShowLinkBox] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [showImageBox, setShowImageBox] = useState(false)
   const [imageUrlInput, setImageUrlInput] = useState('')
   const [imageAltInput, setImageAltInput] = useState('')
+  const [imageAlignInput, setImageAlignInput] = useState<ImageAlign>('full')
+  const [imageWidthInput, setImageWidthInput] = useState<string>('100%')
   const [uploadingImage, setUploadingImage] = useState(false)
   const [pastingMedia, setPastingMedia] = useState(false)
   const [showVideoBox, setShowVideoBox] = useState(false)
@@ -325,13 +485,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           class: 'text-primary underline hover:opacity-80',
         },
       }),
-      Image.configure({
-        inline: false,
-        allowBase64: true,
-        HTMLAttributes: {
-          class: 'w-full rounded my-4 object-cover',
-        },
-      }),
+      EditorialImageNode,
       VideoNode,
       VideoEmbedNode,
       TextAlign.configure({
@@ -343,14 +497,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     editorProps: {
       attributes: {
         class:
-          'min-h-[380px] max-h-[650px] overflow-y-auto p-4 sm:p-5 font-serif text-lg leading-relaxed text-slate-900 focus:outline-none ' +
-          '[&_p]:my-2.5 [&_h2]:font-archivo-black [&_h2]:text-2xl [&_h2]:mt-6 [&_h2]:mb-3 ' +
-          '[&_h3]:font-serif [&_h3]:font-bold [&_h3]:text-xl [&_h3]:mt-5 [&_h3]:mb-2 ' +
-          '[&_h4]:font-serif [&_h4]:font-bold [&_h4]:text-lg [&_h4]:mt-4 [&_h4]:mb-1.5 ' +
-          '[&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-600 [&_blockquote]:my-4 ' +
-          '[&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-3 ' +
-          '[&_a]:text-primary [&_a]:underline [&_mark]:px-1 [&_mark]:rounded ' +
-          '[&_img]:max-w-full [&_img]:rounded [&_img]:my-4 [&_img]:shadow-sm [&_video]:w-full [&_video]:rounded [&_video]:my-4 [&_hr]:my-6 [&_hr]:border-slate-300',
+          'article-prose min-h-[420px] max-h-[680px] overflow-y-auto p-4 sm:p-5 focus:outline-none',
       },
       handlePaste: (_view, event) => {
         const clipboard = event.clipboardData
@@ -382,7 +529,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
               for (const file of imageFiles) {
                 const url = (await uploadImageToServer(file)) || (await fileToDataUrl(file))
                 if (url) {
-                  editorRef.current?.chain().focus().setImage({ src: url, alt: 'Imagem da matéria' }).run()
+                  editorRef.current?.chain().focus().setImage({ src: url, alt: 'Foto da matéria' }).run()
                 }
               }
             } finally {
@@ -407,7 +554,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           return true
         }
 
-        // 3. Código HTML contendo imagem/figure colado como texto puro (ex: <img src="...">, <figure>...</figure>, <p><img ...></p>)
+        // 3. Código HTML contendo imagem/figure colado como texto puro
         if (!textHtml && textPlain.startsWith('<') && /<(?:img|figure)\b/i.test(textPlain)) {
           event.preventDefault()
           if (/src=["']data:image\//i.test(textPlain)) {
@@ -429,7 +576,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         // 4. URL direta de imagem colada como texto puro
         if (!textHtml && /^https?:\/\/\S+\.(?:jpg|jpeg|png|webp|gif)(?:\?\S*)?$/i.test(textPlain)) {
           event.preventDefault()
-          editorRef.current?.chain().focus().setImage({ src: textPlain, alt: 'Imagem da matéria' }).run()
+          editorRef.current?.chain().focus().setImage({ src: textPlain, alt: 'Foto da matéria' }).run()
           return true
         }
 
@@ -454,7 +601,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
                 if (coords) {
                   chain?.setTextSelection(coords.pos)
                 }
-                chain?.setImage({ src: url, alt: 'Imagem da matéria' }).run()
+                chain?.setImage({ src: url, alt: 'Foto da matéria' }).run()
               }
             }
           } finally {
@@ -502,12 +649,24 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   const currentTextColor = editor.getAttributes('textStyle').color || '#0f172a'
   const currentBgColor = editor.getAttributes('highlight').color || '#fef08a'
 
+  const isImageSelected = editor.isActive('image')
+  const selectedImgAttrs = isImageSelected ? editor.getAttributes('image') : null
+
+  const updateSelectedImage = (attrs: Partial<{ align: ImageAlign; width: string | null; caption: string | null }>) => {
+    editor.chain().focus().updateAttributes('image', attrs).run()
+  }
+
   const handleHeadingChange = (val: string) => {
     const chain = editor.chain().focus()
     if (val === 'p') chain.setParagraph().run()
     else if (val === 'h2') chain.toggleHeading({ level: 2 }).run()
     else if (val === 'h3') chain.toggleHeading({ level: 3 }).run()
     else if (val === 'h4') chain.toggleHeading({ level: 4 }).run()
+  }
+
+  const handleApplyMicroFonte = () => {
+    const chain = editor.chain().focus()
+    ;(chain as any).setFontSize('10px').setColor('#64748b').run()
   }
 
   const closeAllPanels = () => {
@@ -541,6 +700,27 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     setLinkUrl('')
   }
 
+  const insertConfiguredImage = (url: string) => {
+    const caption = imageAltInput.trim() || null
+    const align = imageAlignInput
+    const width =
+      align === 'full'
+        ? null
+        : imageWidthInput === '100%'
+        ? '48%'
+        : imageWidthInput
+
+    ;(editor.chain().focus() as any)
+      .setImage({
+        src: url,
+        alt: caption || 'Foto da matéria',
+        caption,
+        align,
+        width,
+      })
+      .run()
+  }
+
   const handleImageFileUpload = async (file: File | undefined) => {
     if (!file) return
     setUploadingImage(true)
@@ -551,11 +731,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (res.ok && data.url) {
-        editor
-          .chain()
-          .focus()
-          .setImage({ src: data.url, alt: imageAltInput.trim() || 'Foto da matéria' })
-          .run()
+        insertConfiguredImage(data.url)
         setShowImageBox(false)
         setImageUrlInput('')
         setImageAltInput('')
@@ -572,11 +748,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   const handleInsertImageByUrl = (e: React.FormEvent) => {
     e.preventDefault()
     if (!imageUrlInput.trim()) return
-    editor
-      .chain()
-      .focus()
-      .setImage({ src: imageUrlInput.trim(), alt: imageAltInput.trim() || 'Foto da matéria' })
-      .run()
+    insertConfiguredImage(imageUrlInput.trim())
     setShowImageBox(false)
     setImageUrlInput('')
     setImageAltInput('')
@@ -635,8 +807,8 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   return (
     <div className="rounded-xl border border-slate-300 bg-white overflow-visible shadow-sm">
       {/* Toolbar */}
-      <div className="border-b border-slate-200 bg-slate-50/90 p-2.5 rounded-t-xl space-y-2 sticky top-0 z-20">
-        {/* Linha 1: Undo/Redo, Bloco, Fonte, Tamanho */}
+      <div className="border-b border-slate-200 bg-slate-50/95 p-2.5 rounded-t-xl space-y-2 sticky top-0 z-20">
+        {/* Linha 1: Undo/Redo, Bloco, Fonte, Tamanho, HTML */}
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
@@ -725,7 +897,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           </button>
         </div>
 
-        {/* Linha 2: Formatação, Cores, Fundo, Alinhamento, Listas, Link, Foto e Vídeo */}
+        {/* Linha 2: Formatação, Cores, Alinhamento, Link, Fonte Micro, Foto e Vídeo */}
         {!showHtmlSource && (
           <div className="flex flex-wrap items-center gap-1 pt-1.5 border-t border-slate-200/80">
             <button
@@ -954,7 +1126,6 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 
             <span className="h-5 w-px bg-slate-300 mx-0.5" />
 
-            {/* Link */}
             <button
               type="button"
               onClick={handleOpenLinkBox}
@@ -983,9 +1154,18 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
               <RemoveFormatting size={15} />
             </button>
 
+            <button
+              type="button"
+              onClick={handleApplyMicroFonte}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-300/70 transition-colors"
+              title="Deixar linha selecionada bem pequena e discreta (para Fonte / Créditos no final)"
+            >
+              <FileText size={12} />
+              <span>Fonte (10px)</span>
+            </button>
+
             <span className="h-5 w-px bg-slate-300 mx-0.5" />
 
-            {/* Botões de Mídia no Corpo: Foto & Vídeo */}
             <button
               type="button"
               onClick={() => {
@@ -1020,6 +1200,91 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             >
               <VideoIcon size={14} />
               <span>Adicionar Vídeo</span>
+            </button>
+          </div>
+        )}
+
+        {/* Barra contextual quando uma imagem está clicada/selecionada dentro do texto */}
+        {!showHtmlSource && isImageSelected && selectedImgAttrs && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/80 p-2.5 text-xs">
+            <span className="font-bold text-primary uppercase text-[10px] tracking-wider">
+              Foto selecionada:
+            </span>
+
+            {/* Alinhamento da Foto */}
+            <div className="flex items-center gap-1">
+              {(
+                [
+                  { id: 'left', label: 'Esquerda (texto ao lado)' },
+                  { id: 'center', label: 'Centro' },
+                  { id: 'right', label: 'Direita (texto ao lado)' },
+                  { id: 'full', label: 'Inteira' },
+                ] as { id: ImageAlign; label: string }[]
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() =>
+                    updateSelectedImage({
+                      align: opt.id,
+                      width:
+                        opt.id === 'full'
+                          ? null
+                          : selectedImgAttrs.width || (opt.id === 'center' ? '75%' : '45%'),
+                    })
+                  }
+                  className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
+                    (selectedImgAttrs.align || 'full') === opt.id
+                      ? 'bg-primary text-white'
+                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <span className="h-4 w-px bg-blue-200" />
+
+            {/* Tamanho da Foto */}
+            <select
+              aria-label="Tamanho da imagem"
+              value={selectedImgAttrs.width || (selectedImgAttrs.align === 'full' ? '100%' : '48%')}
+              onChange={(e) => {
+                const w = e.target.value
+                updateSelectedImage({
+                  width: w === '100%' ? null : w,
+                  align: w === '100%' ? 'full' : selectedImgAttrs.align === 'full' ? 'left' : selectedImgAttrs.align,
+                })
+              }}
+              className="rounded border border-blue-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700"
+            >
+              {IMAGE_WIDTH_PRESETS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+              {selectedImgAttrs.width &&
+                !IMAGE_WIDTH_PRESETS.some((p) => p.value === selectedImgAttrs.width) && (
+                  <option value={selectedImgAttrs.width}>{selectedImgAttrs.width}</option>
+                )}
+            </select>
+
+            <input
+              type="text"
+              placeholder="Legenda abaixo da foto..."
+              value={selectedImgAttrs.caption || ''}
+              onChange={(e) => updateSelectedImage({ caption: e.target.value || null })}
+              className="flex-1 min-w-[160px] rounded border border-blue-200 bg-white px-2.5 py-1 text-[11px] text-slate-700 focus:outline-none focus:border-primary"
+            />
+
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().deleteSelection().run()}
+              className="inline-flex items-center gap-1 rounded bg-white border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50"
+              title="Remover esta foto"
+            >
+              <Trash2 size={12} /> Remover
             </button>
           </div>
         )}
@@ -1086,20 +1351,65 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
               </button>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-3 items-end">
+            <div className="grid sm:grid-cols-3 gap-3 items-end">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Descrição / Legenda da foto (opcional)
+                  Posição / Alinhamento
+                </label>
+                <select
+                  value={imageAlignInput}
+                  onChange={(e) => {
+                    const a = e.target.value as ImageAlign
+                    setImageAlignInput(a)
+                    if (a === 'full') setImageWidthInput('100%')
+                    else if (imageWidthInput === '100%') setImageWidthInput('48%')
+                  }}
+                  className="w-full rounded border border-slate-300 px-2.5 py-1.5 text-xs focus:outline-none focus:border-primary"
+                >
+                  <option value="full">Largura Total (abaixo do texto)</option>
+                  <option value="left">À Esquerda (texto ao lado)</option>
+                  <option value="right">À Direita (texto ao lado)</option>
+                  <option value="center">Centralizada</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Tamanho da Foto
+                </label>
+                <select
+                  value={imageWidthInput}
+                  onChange={(e) => {
+                    const w = e.target.value
+                    setImageWidthInput(w)
+                    if (w === '100%') setImageAlignInput('full')
+                    else if (imageAlignInput === 'full') setImageAlignInput('left')
+                  }}
+                  className="w-full rounded border border-slate-300 px-2.5 py-1.5 text-xs focus:outline-none focus:border-primary"
+                >
+                  {IMAGE_WIDTH_PRESETS.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Legenda (opcional)
                 </label>
                 <input
                   type="text"
-                  placeholder="Ex: Foto da praça revitalizada"
+                  placeholder="Ex: Secom/PMSP"
                   value={imageAltInput}
                   onChange={(e) => setImageAltInput(e.target.value)}
                   className="w-full rounded border border-slate-300 px-2.5 py-1.5 text-xs focus:outline-none focus:border-primary"
                 />
               </div>
+            </div>
 
+            <div className="grid sm:grid-cols-2 gap-3 items-center pt-1">
               <label className="flex items-center justify-center gap-2 cursor-pointer rounded-lg bg-primary hover:bg-primary-dark text-white px-4 py-2 text-xs font-bold transition-colors">
                 {uploadingImage ? (
                   <>
@@ -1123,29 +1433,29 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
                   }}
                 />
               </label>
-            </div>
 
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-              <input
-                type="text"
-                placeholder="Ou cole a URL direta de uma imagem (https://...)"
-                value={imageUrlInput}
-                onChange={(e) => setImageUrlInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    handleInsertImageByUrl(e)
-                  }
-                }}
-                className="flex-1 rounded border border-slate-300 px-2.5 py-1.5 text-xs focus:outline-none focus:border-primary"
-              />
-              <button
-                type="button"
-                onClick={handleInsertImageByUrl}
-                className="rounded border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Inserir URL
-              </button>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Ou cole a URL da imagem (https://...)"
+                  value={imageUrlInput}
+                  onChange={(e) => setImageUrlInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleInsertImageByUrl(e)
+                    }
+                  }}
+                  className="flex-1 rounded border border-slate-300 px-2.5 py-1.5 text-xs focus:outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={handleInsertImageByUrl}
+                  className="rounded border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  Inserir
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1242,7 +1552,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         <EditorContent editor={editor} />
       )}
       <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-[11px] text-slate-500 rounded-b-xl">
-        Dica: Você pode copiar e colar imagens diretamente aqui (<kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded text-[10px]">Ctrl+V</kbd>), inclusive copiadas de sites, Word, PrintScreen ou código HTML <code className="text-[10px]">&lt;img&gt;</code>, ou arrastar fotos do computador.
+        Dica: Clique em qualquer foto dentro do texto para mudar o alinhamento (<strong>Esquerda/Direita com texto ao lado</strong>), tamanho ou legenda. Use <strong>Fonte (10px)</strong> para créditos discretos no final.
       </div>
     </div>
   )

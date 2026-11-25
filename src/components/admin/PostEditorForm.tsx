@@ -337,7 +337,7 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
                   </p>
                 )}
                 <div
-                  className="font-serif text-lg text-slate-800 leading-relaxed text-justify space-y-3 [&>p]:leading-relaxed [&>h2]:font-archivo-black [&>h2]:text-2xl [&>h2]:mt-6 [&>h2]:mb-3 [&>h2]:text-left [&>h3]:font-serif [&>h3]:font-bold [&>h3]:text-xl [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-left [&>h4]:font-serif [&>h4]:font-bold [&>h4]:text-lg [&>h4]:mt-4 [&>h4]:mb-1.5 [&>h4]:text-left [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-slate-600 [&>ul]:list-disc [&>ul]:pl-6 [&>ol]:list-decimal [&>ol]:pl-6 [&_a]:text-primary [&_a]:underline [&_mark]:px-1 [&_mark]:rounded [&_img]:w-full [&_img]:rounded [&_img]:my-4 [&_video]:w-full [&_video]:rounded [&_video]:my-4 [&_video]:bg-black [&_video]:max-h-[520px] [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded [&_iframe]:border-0 [&_hr]:my-6 [&_hr]:border-slate-300"
+                  className="article-prose"
                   dangerouslySetInnerHTML={{
                     __html: content
                       ? formatArticleHtml(content)

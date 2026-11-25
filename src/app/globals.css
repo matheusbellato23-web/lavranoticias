@@ -21,4 +21,125 @@
   .category-badge {
     @apply inline-block text-xs font-archivo font-bold uppercase tracking-wider text-primary hover:text-primary-dark transition-colors;
   }
+
+  /* Shared editorial prose styles (Public Article + Visual Editor + Preview) */
+  .article-prose {
+    @apply font-serif text-lg leading-relaxed text-justify text-foreground flow-root;
+  }
+  .article-prose p {
+    @apply my-3 leading-relaxed;
+  }
+  .article-prose h2 {
+    @apply font-display text-2xl mt-7 mb-3 text-left leading-snug;
+  }
+  .article-prose h3 {
+    @apply font-serif font-bold text-xl mt-6 mb-2 text-left leading-snug;
+  }
+  .article-prose h4 {
+    @apply font-serif font-bold text-lg mt-4 mb-1.5 text-left;
+  }
+  .article-prose blockquote {
+    @apply border-l-4 border-primary pl-4 italic text-muted-foreground my-4;
+  }
+  .article-prose ul {
+    @apply list-disc pl-6 my-3;
+  }
+  .article-prose ol {
+    @apply list-decimal pl-6 my-3;
+  }
+  .article-prose a {
+    @apply text-primary underline hover:opacity-80 break-words;
+  }
+  .article-prose mark {
+    @apply px-1 rounded;
+  }
+  .article-prose hr {
+    @apply my-6 border-border clear-both;
+  }
+  .article-prose video {
+    @apply w-full rounded my-4 bg-black max-h-[540px] clear-both;
+  }
+  .article-prose [data-video-embed] {
+    @apply my-5 aspect-video w-full overflow-hidden rounded bg-black shadow-sm clear-both;
+  }
+  .article-prose [data-video-embed] iframe {
+    @apply w-full h-full border-0;
+  }
+
+  /* Editorial Figures & Floating Images (left/right text wrapping like WordPress) */
+  .article-prose figure.article-figure,
+  .article-prose figure.wp-caption {
+    @apply my-3 max-w-full;
+  }
+  .article-prose figure.article-figure img,
+  .article-prose figure.wp-caption img {
+    @apply w-full h-auto rounded object-cover shadow-sm block;
+  }
+  .article-prose figure.article-figure figcaption,
+  .article-prose figure.wp-caption figcaption {
+    @apply mt-1.5 text-[11px] leading-snug text-muted-foreground text-left;
+  }
+
+  .article-prose [data-align="left"],
+  .article-prose .alignleft {
+    @apply mb-4 mx-auto block;
+  }
+  .article-prose [data-align="right"],
+  .article-prose .alignright {
+    @apply mb-4 mx-auto block;
+  }
+  @media (min-width: 640px) {
+    .article-prose [data-align="left"],
+    .article-prose .alignleft {
+      float: left;
+      margin-right: 1.35rem;
+      margin-top: 0.25rem;
+      margin-bottom: 0.85rem;
+      margin-left: 0;
+      max-width: 55%;
+    }
+    .article-prose [data-align="right"],
+    .article-prose .alignright {
+      float: right;
+      margin-left: 1.35rem;
+      margin-top: 0.25rem;
+      margin-bottom: 0.85rem;
+      margin-right: 0;
+      max-width: 55%;
+    }
+  }
+  .article-prose [data-align="center"],
+  .article-prose .aligncenter {
+    @apply mx-auto my-5 block clear-both;
+  }
+  .article-prose [data-align="full"],
+  .article-prose .alignfull {
+    width: 100%;
+    @apply my-5 block clear-both;
+  }
+  .article-prose > img:not([width]):not([style*="width"]):not([data-align]),
+  .article-prose > p > img:not([width]):not([style*="width"]):not([data-align]) {
+    @apply w-full h-auto rounded my-4 shadow-sm;
+  }
+  .article-prose .ProseMirror-selectednode {
+    @apply ring-2 ring-primary ring-offset-2 rounded;
+  }
+
+  /* Micro Fonte / Créditos styling ("quase imperceptível" as requested) */
+  .article-prose p:has(span[style*="font-size: 9px"]),
+  .article-prose p:has(span[style*="font-size: 10px"]),
+  .article-prose p:has(span[style*="font-size: 11px"]),
+  .article-prose p.fonte-credito {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+    color: #64748b !important;
+    margin-top: 1.25rem;
+    clear: both;
+  }
+  .article-prose p:has(span[style*="font-size: 9px"]) *,
+  .article-prose p:has(span[style*="font-size: 10px"]) *,
+  .article-prose p:has(span[style*="font-size: 11px"]) *,
+  .article-prose p.fonte-credito * {
+    line-height: 1.35 !important;
+  }
 }

@@ -5,6 +5,7 @@ import Topbar from '@/components/layout/Topbar'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import AdBanner from '@/components/ui/AdBanner'
+import ShareButtons from '@/components/ui/ShareButtons'
 import { formatArticleHtml } from '@/lib/formatArticleHtml'
 import { SITE_URL, SITE_NAME, DEFAULT_OG_IMAGE } from '@/lib/constants'
 import type { Metadata } from 'next'
@@ -199,42 +200,51 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         <article className="lg:col-span-2">
           <div className="flex flex-wrap items-center gap-2">
             {post.categories && post.categories.length > 0 ? (
-              post.categories.map((cat, idx) => (
-                <span key={cat.id} className="inline-flex items-center gap-2">
-                  {idx > 0 && <span className="text-muted-foreground text-xs">·</span>}
+              post.categories
+                .filter((c) => c.slug !== 'todas-as-noticias')
+                .concat(
+                  post.categories.every((c) => c.slug === 'todas-as-noticias')
+                    ? post.categories
+                    : []
+                )
+                .map((cat) => (
                   <Link
+                    key={cat.id}
                     href={`/categoria/${cat.slug}`}
-                    className="text-[11px] font-bold uppercase text-accent hover:underline"
+                    className="inline-block rounded bg-primary px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary-dark transition-colors"
                   >
                     {cat.name}
                   </Link>
-                </span>
-              ))
+                ))
             ) : post.category ? (
               <Link
                 href={`/categoria/${post.category.slug}`}
-                className="text-[11px] font-bold uppercase text-accent hover:underline"
+                className="inline-block rounded bg-primary px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary-dark transition-colors"
               >
                 {post.category.name}
               </Link>
             ) : (
-              <span className="text-[11px] font-bold uppercase text-accent">Geral</span>
+              <span className="inline-block rounded bg-primary px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary-foreground">
+                Geral
+              </span>
             )}
           </div>
 
-          <h1 className="mt-2 font-serif text-3xl font-bold leading-tight md:text-4xl text-foreground">
+          <h1 className="mt-3 font-serif text-3xl font-bold leading-tight md:text-4xl text-foreground">
             {post.title}
           </h1>
 
           {post.excerpt && (
-            <p className="mt-3 font-serif text-xl text-muted-foreground leading-relaxed">
+            <p className="mt-3 font-serif text-lg md:text-xl italic text-muted-foreground leading-relaxed">
               {post.excerpt}
             </p>
           )}
 
-          <p className="mt-2 text-xs text-muted-foreground">
-            Redação Lavras Notícia · {formattedDate}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Por <strong className="text-foreground">{post.authorName || 'Redação Lavras Notícia'}</strong> · Publicado em {formattedDate}
           </p>
+
+          <ShareButtons url={canonicalUrl} title={post.title} />
 
           {post.coverImage && (
             <div className="mt-6 space-y-3">
@@ -249,9 +259,9 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </div>
           )}
 
-          {/* Texto contínuo da matéria justificado e com suporte completo a formatação, links, cores, fotos e vídeos */}
+          {/* Texto contínuo da matéria justificado com suporte a fotos alinhadas/flutuantes, legendas, vídeos e Fonte discreta */}
           <div
-            className="mt-6 space-y-4 font-serif text-lg leading-relaxed text-justify text-foreground [&>p]:leading-relaxed [&>h2]:font-display [&>h2]:text-2xl [&>h2]:mt-8 [&>h2]:mb-3 [&>h2]:text-left [&>h3]:font-serif [&>h3]:font-bold [&>h3]:text-xl [&>h3]:mt-6 [&>h3]:mb-2 [&>h3]:text-left [&>h4]:font-serif [&>h4]:font-bold [&>h4]:text-lg [&>h4]:mt-4 [&>h4]:mb-1.5 [&>h4]:text-left [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-muted-foreground [&>ul]:list-disc [&>ul]:pl-6 [&>ol]:list-decimal [&>ol]:pl-6 [&_a]:text-primary [&_a]:underline [&_a]:hover:opacity-80 [&_mark]:px-1 [&_mark]:rounded [&_img]:w-full [&_img]:rounded [&_img]:my-4 [&_video]:w-full [&_video]:rounded [&_video]:my-4 [&_video]:bg-black [&_video]:max-h-[540px] [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded [&_iframe]:border-0 [&_hr]:my-6 [&_hr]:border-border"
+            className="mt-6 article-prose"
             dangerouslySetInnerHTML={{ __html: formattedHtml }}
           />
 
