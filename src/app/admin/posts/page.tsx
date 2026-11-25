@@ -29,6 +29,10 @@ interface PostListItem {
     id: string
     name: string
   } | null
+  categories?: {
+    id: string
+    name: string
+  }[]
 }
 
 interface CategoryOption {
@@ -115,7 +119,13 @@ export default function AdminPostsListPage() {
       })
       if (res.ok) {
         setPosts(
-          posts.map((p) => (p.id === post.id ? { ...p, featured: updatedFeatured } : p))
+          posts.map((p) =>
+            p.id === post.id
+              ? { ...p, featured: updatedFeatured }
+              : updatedFeatured
+              ? { ...p, featured: false }
+              : p
+          )
         )
       }
     } catch {
@@ -274,15 +284,26 @@ export default function AdminPostsListPage() {
                       </div>
                     </td>
 
-                    {/* Category */}
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      {post.category ? (
-                        <span className="font-bold text-[11px] text-primary uppercase bg-red-50 px-2 py-0.5 rounded">
-                          {post.category.name}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 text-xs">Sem editoria</span>
-                      )}
+                    {/* Categories */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex flex-wrap gap-1 max-w-[190px]">
+                        {post.categories && post.categories.length > 0 ? (
+                          post.categories.map((c) => (
+                            <span
+                              key={c.id}
+                              className="font-bold text-[10px] text-primary uppercase bg-red-50 px-2 py-0.5 rounded whitespace-nowrap"
+                            >
+                              {c.name}
+                            </span>
+                          ))
+                        ) : post.category ? (
+                          <span className="font-bold text-[10px] text-primary uppercase bg-red-50 px-2 py-0.5 rounded whitespace-nowrap">
+                            {post.category.name}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">Sem editoria</span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Featured toggle */}

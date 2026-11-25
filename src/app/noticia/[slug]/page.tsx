@@ -20,7 +20,7 @@ interface ArticlePageProps {
 export async function generateMetadata({ params }: ArticlePageProps): Promise<Metadata> {
   const post = await prisma.post.findUnique({
     where: { slug: params.slug },
-    include: { category: true },
+    include: { category: true, categories: true },
   })
 
   if (!post || !post.published) {
@@ -87,7 +87,7 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const post = await prisma.post.findUnique({
     where: { slug: params.slug },
-    include: { category: true },
+    include: { category: true, categories: true },
   })
 
   if (!post || !post.published) {
@@ -197,16 +197,30 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
       <main className="mx-auto grid max-w-6xl gap-10 px-4 py-8 lg:grid-cols-3">
         <article className="lg:col-span-2">
-          {post.category ? (
-            <Link
-              href={`/categoria/${post.category.slug}`}
-              className="text-[11px] font-bold uppercase text-accent hover:underline"
-            >
-              {post.category.name}
-            </Link>
-          ) : (
-            <span className="text-[11px] font-bold uppercase text-accent">Geral</span>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {post.categories && post.categories.length > 0 ? (
+              post.categories.map((cat, idx) => (
+                <span key={cat.id} className="inline-flex items-center gap-2">
+                  {idx > 0 && <span className="text-muted-foreground text-xs">·</span>}
+                  <Link
+                    href={`/categoria/${cat.slug}`}
+                    className="text-[11px] font-bold uppercase text-accent hover:underline"
+                  >
+                    {cat.name}
+                  </Link>
+                </span>
+              ))
+            ) : post.category ? (
+              <Link
+                href={`/categoria/${post.category.slug}`}
+                className="text-[11px] font-bold uppercase text-accent hover:underline"
+              >
+                {post.category.name}
+              </Link>
+            ) : (
+              <span className="text-[11px] font-bold uppercase text-accent">Geral</span>
+            )}
+          </div>
 
           <h1 className="mt-2 font-serif text-3xl font-bold leading-tight md:text-4xl text-foreground">
             {post.title}

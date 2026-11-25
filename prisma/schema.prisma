@@ -27,28 +27,30 @@ model Category {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   posts       Post[]
+  multiPosts  Post[]   @relation("PostCategories")
 }
 
 model Post {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   title       String
-  slug        String    @unique
+  slug        String     @unique
   excerpt     String?
   content     String
   coverImage  String?
-  authorName  String?   @default("Redação Lavras Notícia")
-  featured    Boolean   @default(false)
-  published   Boolean   @default(true)
-  views       Int       @default(0)
-  publishedAt DateTime  @default(now())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  authorName  String?    @default("Redação Lavras Notícia")
+  featured    Boolean    @default(false)
+  published   Boolean    @default(true)
+  views       Int        @default(0)
+  publishedAt DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   categoryId  String?
-  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category    Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categories  Category[] @relation("PostCategories")
 
   userId      String?
-  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
 model Job {

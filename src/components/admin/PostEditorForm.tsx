@@ -32,6 +32,7 @@ interface PostEditorProps {
     coverImage?: string | null
     authorName?: string | null
     categoryId?: string | null
+    categoryIds?: string[]
     featured?: boolean
     published?: boolean
   }
@@ -46,6 +47,7 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit')
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(Boolean(initialData.slug))
 
   const [title, setTitle] = useState(initialData.title || '')
   const [slug, setSlug] = useState(initialData.slug || '')
@@ -53,23 +55,45 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
   const [content, setContent] = useState(initialData.content || '')
   const [coverImage, setCoverImage] = useState(initialData.coverImage || '')
   const [authorName, setAuthorName] = useState(initialData.authorName || 'Redação Lavras Notícia')
-  const [categoryId, setCategoryId] = useState(initialData.categoryId || '')
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
+    initialData.categoryIds && initialData.categoryIds.length > 0
+      ? initialData.categoryIds
+      : initialData.categoryId
+      ? [initialData.categoryId]
+      : []
+  )
   const [featured, setFeatured] = useState(initialData.featured || false)
   const [published, setPublished] = useState(initialData.published ?? true)
 
   useEffect(() => {
     fetch('/api/admin/categories')
       .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) setCategories(data)
+      .then((data: CategoryOption[]) => {
+        if (Array.isArray(data)) {
+          setCategories(data)
+          if (!isEditing) {
+            const todas = data.find((c) => c.slug === 'todas-as-noticias')
+            if (todas) {
+              setSelectedCategoryIds((prev) =>
+                prev.length === 0 ? [todas.id] : prev
+              )
+            }
+          }
+        }
       })
       .catch(() => {})
-  }, [])
+  }, [isEditing])
 
-  // Auto-generate slug when title changes (if not explicitly edited)
+  const toggleCategory = (id: string) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  // Auto-generate slug when title changes (if not manually edited)
   const handleTitleChange = (val: string) => {
     setTitle(val)
-    if (!isEditing && !slug) {
+    if (!isEditing && !slugManuallyEdited) {
       const generated = val
         .toLowerCase()
         .normalize('NFD')
@@ -113,6 +137,10 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
     setSuccess('')
 
     try {
+      const thematicId = selectedCategoryIds.find((id) => {
+        const cat = categories.find((c) => c.id === id)
+        return cat && cat.slug !== 'todas-as-noticias'
+      })
       const payload = {
         title,
         slug,
@@ -120,7 +148,8 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
         content,
         coverImage,
         authorName,
-        categoryId: categoryId || null,
+        categoryId: thematicId || selectedCategoryIds[0] || null,
+        categoryIds: selectedCategoryIds,
         featured,
         published,
       }
@@ -237,7 +266,10 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
                   type="text"
                   required
                   value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
+                  onChange={(e) => {
+                    setSlugManuallyEdited(true)
+                    setSlug(e.target.value)
+                  }}
                   placeholder="titulo-da-materia"
                   className="flex-1 bg-transparent text-slate-800 font-mono focus:outline-none ml-1 text-xs"
                 />
@@ -247,11 +279,11 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
             {/* Excerpt */}
             <div>
               <label className="block text-xs font-archivo font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Resumo / Subtítulo (Lead Jornalístico)
+                Resumo Curto / Subtítulo (1 a 3 linhas na capa)
               </label>
               <textarea
                 rows={2}
-                placeholder="Breve resumo da notícia que aparece nos cards da home e logo abaixo do título..."
+                placeholder="Escreva apenas 1 ou 2 frases de resumo (o texto completo da matéria vai abaixo no Editor Visual)..."
                 value={excerpt}
                 onChange={(e) => setExcerpt(e.target.value)}
                 className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:border-blue-royal resize-y"
@@ -325,23 +357,48 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
               Publicação & Status
             </h3>
 
-            {/* Category Select */}
+            {/* Multi-Category Checkboxes (estilo WordPress) */}
             <div>
-              <label className="block text-xs font-archivo font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Editoria / Categoria *
-              </label>
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full text-sm px-3 py-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-blue-royal font-medium"
-              >
-                <option value="">Selecione uma editoria</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-archivo font-bold uppercase tracking-wider text-slate-700">
+                  Editorias / Categorias *
+                </label>
+                <span className="text-[10px] font-semibold text-primary">
+                  {selectedCategoryIds.length} selecionada(s)
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mb-2">
+                Marque <strong>Todas as Notícias</strong> + o tema da matéria (pode escolher mais de uma).
+              </p>
+              <div className="max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/70 p-2.5 space-y-1.5">
+                {categories.map((c) => {
+                  const checked = selectedCategoryIds.includes(c.id)
+                  const isMaster = c.slug === 'todas-as-noticias'
+                  return (
+                    <label
+                      key={c.id}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-xs transition-colors ${
+                        checked
+                          ? 'bg-primary/10 text-primary font-bold'
+                          : 'hover:bg-white text-slate-700 font-medium'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleCategory(c.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
+                      />
+                      <span>{c.name}</span>
+                      {isMaster && (
+                        <span className="ml-auto text-[9px] uppercase bg-primary/15 text-primary px-1.5 py-0.5 rounded">
+                          Geral
+                        </span>
+                      )}
+                    </label>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Author */}
@@ -369,10 +426,10 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
                 />
                 <div>
                   <span className="font-bold text-xs text-editorial-black block">
-                    ★ Destaque Principal na Capa (Hero)
+                    ★ Destaque Principal na Capa (Foto Grande)
                   </span>
                   <span className="text-[11px] text-slate-500 block mt-0.5">
-                    Aparece no grande bloco superior com foto panorâmica da home page.
+                    Coloca esta matéria na foto grande do topo (e move o destaque anterior para Últimas Notícias).
                   </span>
                 </div>
               </label>

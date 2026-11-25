@@ -55,17 +55,25 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const category = await prisma.category.findUnique({
     where: { slug: params.slug },
-    include: {
-      posts: {
-        where: { published: true },
-        orderBy: { publishedAt: 'desc' },
-      },
-    },
   })
 
   if (!category) {
     notFound()
   }
+
+  const posts = await prisma.post.findMany({
+    where:
+      category.slug === 'todas-as-noticias'
+        ? { published: true }
+        : {
+            published: true,
+            OR: [
+              { categoryId: category.id },
+              { categories: { some: { id: category.id } } },
+            ],
+          },
+    orderBy: { publishedAt: 'desc' },
+  })
 
   const categoryJsonLd = {
     '@context': 'https://schema.org',
@@ -135,7 +143,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         {/* Publicidade Rotativa (970x250 / 728x90 / 300x250) acima do grid com fotos */}
         <AdBanner position="top" format="rotativo" />
 
-        {category.posts.length === 0 ? (
+        {posts.length === 0 ? (
           <div className="min-h-64 border-b border-border py-16">
             <p className="font-serif text-xl text-muted-foreground">
               Nenhuma notícia publicada nesta categoria.
@@ -143,7 +151,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
           </div>
         ) : (
           <div className="grid gap-x-8 gap-y-10 py-8 md:grid-cols-2 lg:grid-cols-3">
-            {category.posts.map((post) => (
+            {posts.map((post) => (
               <article key={post.slug} className="min-w-0 border-b border-border pb-6">
                 <Link href={`/noticia/${post.slug}`}>
                   {post.coverImage && (

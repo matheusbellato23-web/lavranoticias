@@ -12,23 +12,40 @@ import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, INSTAGRAM_URL } from '@/lib/cons
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const [featuredPost, sidebarPosts, manchetes, events] = await Promise.all([
-    // Hero post (Corrida Novembro Azul or latest featured)
-    prisma.post.findFirst({
-      where: { published: true, featured: true },
+  const featuredPost = await prisma.post.findFirst({
+    where: { published: true, featured: true },
+    include: { category: true },
+    orderBy: { publishedAt: 'desc' },
+  })
+
+  // Fallback for featured post if needed
+  const heroPost =
+    featuredPost ||
+    (await prisma.post.findFirst({
+      where: { published: true },
       include: { category: true },
       orderBy: { publishedAt: 'desc' },
-    }),
-    // 4 posts for the sidebar "Últimas notícias" (with images)
+    }))
+
+  const [sidebarPosts, manchetes, events] = await Promise.all([
+    // 4 posts for the sidebar "Últimas notícias" (with images, excluding hero)
     prisma.post.findMany({
-      where: { published: true, featured: false, coverImage: { not: null } },
+      where: {
+        published: true,
+        ...(heroPost ? { id: { not: heroPost.id } } : {}),
+        coverImage: { not: null },
+      },
       include: { category: true },
       orderBy: { publishedAt: 'desc' },
       take: 4,
     }),
     // Manchetes locais (without images)
     prisma.post.findMany({
-      where: { published: true, featured: false, coverImage: null },
+      where: {
+        published: true,
+        ...(heroPost ? { id: { not: heroPost.id } } : {}),
+        coverImage: null,
+      },
       include: { category: true },
       orderBy: { publishedAt: 'desc' },
       take: 5,
@@ -40,13 +57,6 @@ export default async function HomePage() {
       take: 3,
     }),
   ])
-
-  // Fallback for featured post if needed
-  const heroPost = featuredPost || (await prisma.post.findFirst({
-    where: { published: true },
-    include: { category: true },
-    orderBy: { publishedAt: 'desc' },
-  }))
 
   const homeJsonLd = {
     '@context': 'https://schema.org',
@@ -119,7 +129,7 @@ export default async function HomePage() {
                   </h2>
                 </Link>
                 {heroPost.excerpt && (
-                  <p className="mt-3 font-serif text-lg text-muted-foreground leading-relaxed">
+                  <p className="mt-3 font-serif text-lg text-muted-foreground leading-relaxed line-clamp-4">
                     {heroPost.excerpt}
                   </p>
                 )}

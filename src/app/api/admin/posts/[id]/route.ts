@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentAdmin } from '@/lib/auth'
+import { resolvePostCategories } from '@/lib/resolvePostCategories'
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const admin = await getCurrentAdmin()
@@ -11,7 +12,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const post = await prisma.post.findUnique({
     where: { id: params.id },
-    include: { category: true },
+    include: { category: true, categories: true },
   })
 
   if (!post) {
@@ -29,7 +30,18 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
   try {
     const body = await request.json()
-    const { title, slug, excerpt, content, coverImage, authorName, categoryId, featured, published } = body
+    const {
+      title,
+      slug,
+      excerpt,
+      content,
+      coverImage,
+      authorName,
+      categoryId,
+      categoryIds,
+      featured,
+      published,
+    } = body
 
     const existing = await prisma.post.findUnique({ where: { id: params.id } })
     if (!existing) {
@@ -50,18 +62,26 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     if (content !== undefined) data.content = content
     if (coverImage !== undefined) data.coverImage = coverImage
     if (authorName !== undefined) data.authorName = authorName
-    if (categoryId !== undefined) {
-      if (categoryId) {
-        const cat = await prisma.category.findUnique({
-          where: { id: categoryId },
-          select: { id: true },
+    let touchedCategorySlugs: string[] = []
+    if (categoryIds !== undefined || categoryId !== undefined) {
+      const { primaryCategoryId, categories: validCategories } = await resolvePostCategories(
+        categoryIds,
+        categoryId
+      )
+      data.categoryId = primaryCategoryId
+      data.categories = { set: validCategories.map((c) => ({ id: c.id })) }
+      touchedCategorySlugs = validCategories.map((c) => c.slug)
+    }
+    if (featured !== undefined) {
+      const isFeatured = Boolean(featured)
+      data.featured = isFeatured
+      if (isFeatured) {
+        await prisma.post.updateMany({
+          where: { featured: true, NOT: { id: params.id } },
+          data: { featured: false },
         })
-        data.categoryId = cat?.id ?? null
-      } else {
-        data.categoryId = null
       }
     }
-    if (featured !== undefined) data.featured = Boolean(featured)
     if (published !== undefined) {
       data.published = Boolean(published)
       if (published && !existing.published) {
@@ -72,10 +92,15 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const updated = await prisma.post.update({
       where: { id: params.id },
       data,
+      include: { category: true, categories: true },
     })
 
     revalidatePath('/')
     revalidatePath(`/noticia/${updated.slug}`)
+    revalidatePath('/categoria/todas-as-noticias')
+    for (const s of touchedCategorySlugs) {
+      revalidatePath(`/categoria/${s}`)
+    }
     revalidatePath('/sitemap.xml')
 
     return NextResponse.json({ success: true, post: updated })

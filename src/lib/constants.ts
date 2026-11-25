@@ -12,6 +12,7 @@ export interface CategoryDef {
 }
 
 export const CATEGORIES_LIST: CategoryDef[] = [
+  { name: 'Todas as Notícias', slug: 'todas-as-noticias' },
   { name: 'Bairro', slug: 'bairro' },
   { name: 'Segurança', slug: 'seguranca' },
   { name: 'Trânsito', slug: 'transito' },

@@ -19,11 +19,19 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
 
   const post = await prisma.post.findUnique({
     where: { id: params.id },
+    include: { categories: { select: { id: true } } },
   })
 
   if (!post) {
     notFound()
   }
+
+  const initialCategoryIds = Array.from(
+    new Set([
+      ...post.categories.map((c) => c.id),
+      ...(post.categoryId ? [post.categoryId] : []),
+    ])
+  )
 
   return (
     <PostEditorForm
@@ -36,6 +44,7 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
         coverImage: post.coverImage,
         authorName: post.authorName,
         categoryId: post.categoryId,
+        categoryIds: initialCategoryIds,
         featured: post.featured,
         published: post.published,
       }}

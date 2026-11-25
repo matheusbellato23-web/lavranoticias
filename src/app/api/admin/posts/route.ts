@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentAdmin } from '@/lib/auth'
+import { resolvePostCategories } from '@/lib/resolvePostCategories'
 
 export async function GET(request: Request) {
   const admin = await getCurrentAdmin()
@@ -14,17 +15,28 @@ export async function GET(request: Request) {
   const search = searchParams.get('search')
 
   const where: any = {}
-  if (categoryId) where.categoryId = categoryId
-  if (search) {
+  if (categoryId) {
     where.OR = [
+      { categoryId },
+      { categories: { some: { id: categoryId } } },
+    ]
+  }
+  if (search) {
+    const searchCond = [
       { title: { contains: search } },
       { excerpt: { contains: search } },
     ]
+    if (where.OR) {
+      where.AND = [{ OR: where.OR }, { OR: searchCond }]
+      delete where.OR
+    } else {
+      where.OR = searchCond
+    }
   }
 
   const posts = await prisma.post.findMany({
     where,
-    include: { category: true },
+    include: { category: true, categories: true },
     orderBy: { createdAt: 'desc' },
   })
 
@@ -39,7 +51,18 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { title, slug, excerpt, content, coverImage, authorName, categoryId, featured, published } = body
+    const {
+      title,
+      slug,
+      excerpt,
+      content,
+      coverImage,
+      authorName,
+      categoryId,
+      categoryIds,
+      featured,
+      published,
+    } = body
 
     if (!title || !content) {
       return NextResponse.json({ error: 'Título e conteúdo são obrigatórios' }, { status: 400 })
@@ -63,14 +86,17 @@ export async function POST(request: Request) {
         ? await prisma.user.findUnique({ where: { email: admin.email }, select: { id: true } })
         : null)
 
-    // Validate categoryId safely against DB
-    let validCategoryId: string | null = null
-    if (categoryId) {
-      const cat = await prisma.category.findUnique({
-        where: { id: categoryId },
-        select: { id: true },
+    const { primaryCategoryId, categories: validCategories } = await resolvePostCategories(
+      categoryIds,
+      categoryId
+    )
+
+    const isFeatured = Boolean(featured)
+    if (isFeatured) {
+      await prisma.post.updateMany({
+        where: { featured: true },
+        data: { featured: false },
       })
-      validCategoryId = cat?.id ?? null
     }
 
     const post = await prisma.post.create({
@@ -81,15 +107,24 @@ export async function POST(request: Request) {
         content,
         coverImage: coverImage || null,
         authorName: authorName || admin.name || 'Redação Lavras Notícia',
-        categoryId: validCategoryId,
-        featured: Boolean(featured),
+        categoryId: primaryCategoryId,
+        categories:
+          validCategories.length > 0
+            ? { connect: validCategories.map((c) => ({ id: c.id })) }
+            : undefined,
+        featured: isFeatured,
         published: Boolean(published),
         publishedAt: new Date(),
         userId: dbUser?.id ?? null,
       },
+      include: { category: true, categories: true },
     })
 
     revalidatePath('/')
+    revalidatePath('/categoria/todas-as-noticias')
+    for (const c of validCategories) {
+      revalidatePath(`/categoria/${c.slug}`)
+    }
     revalidatePath('/sitemap.xml')
     revalidatePath('/sitemap-news.xml')
 

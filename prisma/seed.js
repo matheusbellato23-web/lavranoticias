@@ -32,6 +32,7 @@ async function main() {
 
   // 2. Categories
   const categoriesData = [
+    { name: 'Todas as Notícias', slug: 'todas-as-noticias', order: 0 },
     { name: 'Bairro', slug: 'bairro', order: 1 },
     { name: 'Segurança', slug: 'seguranca', order: 2 },
     { name: 'Trânsito', slug: 'transito', order: 3 },
@@ -69,6 +70,14 @@ async function main() {
     }
     console.log(`⏭️ Categories already present (${existingCategories}), skipping overwrite`)
   }
+
+  // Always ensure "Todas as Notícias" master category exists (order: 0)
+  const todasCat = await prisma.category.upsert({
+    where: { slug: 'todas-as-noticias' },
+    update: {},
+    create: { name: 'Todas as Notícias', slug: 'todas-as-noticias', order: 0 },
+  })
+  categories['todas-as-noticias'] = todasCat
 
   // 3. Posts with exact real titles, excerpts, and local downloaded images
   const posts = [
