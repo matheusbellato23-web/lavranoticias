@@ -103,8 +103,9 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const plainTextCheck = content.replace(/<[^>]+>/g, '').trim()
-    if (!plainTextCheck && !content.includes('<img')) {
-      setError('Escreva o conteúdo da matéria antes de salvar.')
+    const hasMedia = /<(img|video|iframe)\b/i.test(content)
+    if (!plainTextCheck && !hasMedia) {
+      setError('Escreva o conteúdo ou adicione mídia antes de salvar.')
       return
     }
     setLoading(true)
@@ -286,8 +287,8 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
                   <span>Pré-visualização no Site</span>
                 </button>
               </div>
-              <span className="hidden sm:inline text-[11px] text-slate-400">
-                Texto justificado por padrão · Formatação ao vivo
+              <span className="hidden sm:inline text-[11px] text-slate-500 font-medium">
+                Use os botões <strong>Adicionar Foto</strong> e <strong>Adicionar Vídeo</strong> na barra abaixo para inserir no texto
               </span>
             </div>
 
@@ -304,7 +305,7 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
                   </p>
                 )}
                 <div
-                  className="font-serif text-lg text-slate-800 leading-relaxed text-justify space-y-3 [&>p]:leading-relaxed [&>h2]:font-archivo-black [&>h2]:text-2xl [&>h2]:mt-6 [&>h2]:mb-3 [&>h2]:text-left [&>h3]:font-serif [&>h3]:font-bold [&>h3]:text-xl [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-left [&>h4]:font-serif [&>h4]:font-bold [&>h4]:text-lg [&>h4]:mt-4 [&>h4]:mb-1.5 [&>h4]:text-left [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-slate-600 [&>ul]:list-disc [&>ul]:pl-6 [&>ol]:list-decimal [&>ol]:pl-6 [&_a]:text-primary [&_a]:underline [&_mark]:px-1 [&_mark]:rounded [&_img]:w-full [&_img]:rounded [&_img]:my-4 [&_hr]:my-6 [&_hr]:border-slate-300"
+                  className="font-serif text-lg text-slate-800 leading-relaxed text-justify space-y-3 [&>p]:leading-relaxed [&>h2]:font-archivo-black [&>h2]:text-2xl [&>h2]:mt-6 [&>h2]:mb-3 [&>h2]:text-left [&>h3]:font-serif [&>h3]:font-bold [&>h3]:text-xl [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-left [&>h4]:font-serif [&>h4]:font-bold [&>h4]:text-lg [&>h4]:mt-4 [&>h4]:mb-1.5 [&>h4]:text-left [&>blockquote]:border-l-4 [&>blockquote]:border-primary [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-slate-600 [&>ul]:list-disc [&>ul]:pl-6 [&>ol]:list-decimal [&>ol]:pl-6 [&_a]:text-primary [&_a]:underline [&_mark]:px-1 [&_mark]:rounded [&_img]:w-full [&_img]:rounded [&_img]:my-4 [&_video]:w-full [&_video]:rounded [&_video]:my-4 [&_video]:bg-black [&_video]:max-h-[520px] [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded [&_iframe]:border-0 [&_hr]:my-6 [&_hr]:border-slate-300"
                   dangerouslySetInnerHTML={{
                     __html: content
                       ? formatArticleHtml(content)
@@ -401,7 +402,7 @@ export default function PostEditorForm({ initialData = {}, isEditing = false }: 
           {/* Cover Image Box */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <h3 className="font-archivo-black text-xs uppercase tracking-wider text-editorial-black border-b border-slate-100 pb-2">
-              Imagem de Capa
+              Foto de Capa (Card / Destaque)
             </h3>
 
             <div>

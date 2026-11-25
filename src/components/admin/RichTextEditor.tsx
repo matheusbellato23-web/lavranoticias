@@ -11,7 +11,7 @@ import TextStyle from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
 import FontFamily from '@tiptap/extension-font-family'
-import { Extension } from '@tiptap/core'
+import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import { formatArticleHtml } from '@/lib/formatArticleHtml'
 import {
   Bold,
@@ -28,6 +28,7 @@ import {
   Link2,
   Unlink,
   Image as ImageIcon,
+  Video as VideoIcon,
   Undo2,
   Redo2,
   Highlighter,
@@ -78,6 +79,103 @@ const FontSize = Extension.create({
     } as any
   },
 })
+
+// Native HTML5 <video> node for uploaded MP4/WebM/MOV files
+const VideoNode = Node.create({
+  name: 'video',
+  group: 'block',
+  atom: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      src: { default: null },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'video[src]' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'video',
+      mergeAttributes(HTMLAttributes, {
+        controls: 'true',
+        playsinline: 'true',
+        preload: 'metadata',
+        class: 'w-full rounded my-4 bg-black max-h-[520px]',
+      }),
+    ]
+  },
+})
+
+// Responsive iframe embed node for YouTube / Vimeo / Instagram
+const VideoEmbedNode = Node.create({
+  name: 'videoEmbed',
+  group: 'block',
+  atom: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      src: { default: null },
+    }
+  },
+  parseHTML() {
+    return [
+      {
+        tag: 'div[data-video-embed]',
+        getAttrs: (el) => {
+          const iframe = (el as HTMLElement).querySelector('iframe')
+          return iframe ? { src: iframe.getAttribute('src') } : false
+        },
+      },
+      {
+        tag: 'iframe[src]',
+      },
+    ]
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'div',
+      {
+        'data-video-embed': '',
+        class: 'my-5 aspect-video w-full overflow-hidden rounded bg-black shadow-sm',
+      },
+      [
+        'iframe',
+        mergeAttributes(HTMLAttributes, {
+          class: 'w-full h-full border-0',
+          allowfullscreen: 'true',
+          loading: 'lazy',
+        }),
+      ],
+    ]
+  },
+})
+
+function resolveVideoInput(rawUrl: string): { kind: 'video' | 'embed'; src: string } {
+  const url = rawUrl.trim()
+
+  // YouTube (watch, youtu.be, shorts, live, embed)
+  const ytMatch = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/i
+  )
+  if (ytMatch) {
+    return { kind: 'embed', src: `https://www.youtube.com/embed/${ytMatch[1]}` }
+  }
+
+  // Vimeo
+  const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i)
+  if (vimeoMatch) {
+    return { kind: 'embed', src: `https://player.vimeo.com/video/${vimeoMatch[1]}` }
+  }
+
+  // Instagram post / reel
+  const igMatch = url.match(/instagram\.com\/(p|reel|tv)\/([a-zA-Z0-9_-]+)/i)
+  if (igMatch) {
+    return { kind: 'embed', src: `https://www.instagram.com/${igMatch[1]}/${igMatch[2]}/embed` }
+  }
+
+  return { kind: 'video', src: url }
+}
 
 interface RichTextEditorProps {
   value: string
@@ -131,6 +229,9 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   const [imageUrlInput, setImageUrlInput] = useState('')
   const [imageAltInput, setImageAltInput] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [showVideoBox, setShowVideoBox] = useState(false)
+  const [videoUrlInput, setVideoUrlInput] = useState('')
+  const [uploadingVideo, setUploadingVideo] = useState(false)
   const [showColorMenu, setShowColorMenu] = useState<'text' | 'bg' | null>(null)
   const [showHtmlSource, setShowHtmlSource] = useState(false)
   const lastExternalValueRef = useRef<string>(value)
@@ -166,6 +267,8 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           class: 'w-full rounded my-4 object-cover',
         },
       }),
+      VideoNode,
+      VideoEmbedNode,
       TextAlign.configure({
         types: ['heading', 'paragraph'],
         defaultAlignment: 'justify',
@@ -182,7 +285,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           '[&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-600 [&_blockquote]:my-4 ' +
           '[&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-3 ' +
           '[&_a]:text-primary [&_a]:underline [&_mark]:px-1 [&_mark]:rounded ' +
-          '[&_img]:max-w-full [&_img]:rounded [&_img]:my-4 [&_img]:shadow-sm [&_hr]:my-6 [&_hr]:border-slate-300',
+          '[&_img]:max-w-full [&_img]:rounded [&_img]:my-4 [&_img]:shadow-sm [&_video]:w-full [&_video]:rounded [&_video]:my-4 [&_hr]:my-6 [&_hr]:border-slate-300',
       },
     },
     onUpdate: ({ editor: ed }) => {
@@ -192,7 +295,6 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     },
   })
 
-  // Keep synced if user edits HTML source mode or initial value changes externally
   useEffect(() => {
     if (!editor) return
     if (value !== lastExternalValueRef.current) {
@@ -230,12 +332,19 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     else if (val === 'h4') chain.toggleHeading({ level: 4 }).run()
   }
 
+  const closeAllPanels = () => {
+    setShowLinkBox(false)
+    setShowImageBox(false)
+    setShowVideoBox(false)
+    setShowColorMenu(null)
+  }
+
   const handleOpenLinkBox = () => {
     const prev = editor.getAttributes('link').href || ''
     setLinkUrl(prev)
-    setShowImageBox(false)
-    setShowColorMenu(null)
-    setShowLinkBox((s) => !s)
+    const nextState = !showLinkBox
+    closeAllPanels()
+    setShowLinkBox(nextState)
   }
 
   const handleApplyLink = (e: React.FormEvent) => {
@@ -260,6 +369,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     try {
       const fd = new FormData()
       fd.append('file', file)
+      fd.append('folder', 'media')
       const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (res.ok && data.url) {
@@ -294,6 +404,49 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     setImageAltInput('')
   }
 
+  const handleVideoFileUpload = async (file: File | undefined) => {
+    if (!file) return
+    setUploadingVideo(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', 'media')
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        editor
+          .chain()
+          .focus()
+          .insertContent({ type: 'video', attrs: { src: data.url } })
+          .run()
+        setShowVideoBox(false)
+        setVideoUrlInput('')
+      } else {
+        alert(data.error || 'Erro ao enviar vídeo')
+      }
+    } catch {
+      alert('Erro de conexão ao enviar vídeo')
+    } finally {
+      setUploadingVideo(false)
+    }
+  }
+
+  const handleInsertVideoByUrl = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!videoUrlInput.trim()) return
+    const resolved = resolveVideoInput(videoUrlInput)
+    editor
+      .chain()
+      .focus()
+      .insertContent({
+        type: resolved.kind === 'embed' ? 'videoEmbed' : 'video',
+        attrs: { src: resolved.src },
+      })
+      .run()
+    setShowVideoBox(false)
+    setVideoUrlInput('')
+  }
+
   const btnClass = (active: boolean) =>
     `p-1.5 rounded text-xs transition-colors flex items-center justify-center ${
       active
@@ -304,7 +457,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   return (
     <div className="rounded-xl border border-slate-300 bg-white overflow-visible shadow-sm">
       {/* Toolbar */}
-      <div className="border-b border-slate-200 bg-slate-50/90 p-2 rounded-t-xl space-y-2 sticky top-0 z-20">
+      <div className="border-b border-slate-200 bg-slate-50/90 p-2.5 rounded-t-xl space-y-2 sticky top-0 z-20">
         {/* Linha 1: Undo/Redo, Bloco, Fonte, Tamanho */}
         <div className="flex flex-wrap items-center gap-1.5">
           <button
@@ -328,7 +481,6 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 
           <span className="h-5 w-px bg-slate-300 mx-0.5" />
 
-          {/* Tipo de Bloco */}
           <select
             aria-label="Estilo do texto"
             value={currentHeadingValue}
@@ -342,7 +494,6 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             <option value="h4">Subtítulo Menor (H4)</option>
           </select>
 
-          {/* Família da Fonte */}
           <select
             aria-label="Tipo de fonte"
             value={currentFontFamily}
@@ -362,7 +513,6 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             ))}
           </select>
 
-          {/* Tamanho da Fonte */}
           <select
             aria-label="Tamanho da fonte"
             value={currentFontSize}
@@ -397,9 +547,9 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           </button>
         </div>
 
-        {/* Linha 2: Formatação, Cores, Fundo, Alinhamento, Listas, Link, Foto */}
+        {/* Linha 2: Formatação, Cores, Fundo, Alinhamento, Listas, Link, Foto e Vídeo */}
         {!showHtmlSource && (
-          <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-slate-200/80">
+          <div className="flex flex-wrap items-center gap-1 pt-1.5 border-t border-slate-200/80">
             <button
               type="button"
               onClick={() => editor.chain().focus().toggleBold().run()}
@@ -591,7 +741,6 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 
             <span className="h-5 w-px bg-slate-300 mx-0.5" />
 
-            {/* Listas, Citação, Divisória */}
             <button
               type="button"
               onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -647,7 +796,6 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
               </button>
             )}
 
-            {/* Limpar formatação */}
             <button
               type="button"
               onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
@@ -659,23 +807,41 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 
             <span className="h-5 w-px bg-slate-300 mx-0.5" />
 
-            {/* Botão Inserir Foto */}
+            {/* Botões de Mídia no Corpo: Foto & Vídeo */}
             <button
               type="button"
               onClick={() => {
-                setShowLinkBox(false)
-                setShowColorMenu(null)
-                setShowImageBox((s) => !s)
+                const next = !showImageBox
+                closeAllPanels()
+                setShowImageBox(next)
               }}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors ${
                 showImageBox
-                  ? 'bg-primary text-white'
+                  ? 'bg-primary text-white shadow-sm'
                   : 'bg-primary/10 text-primary hover:bg-primary/20'
               }`}
-              title="Adicionar foto no corpo da matéria"
+              title="Adicionar imagem dentro da matéria"
             >
               <ImageIcon size={14} />
               <span>Adicionar Foto</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const next = !showVideoBox
+                closeAllPanels()
+                setShowVideoBox(next)
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors ${
+                showVideoBox
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'bg-accent/10 text-accent hover:bg-accent/20'
+              }`}
+              title="Adicionar vídeo (arquivo MP4/MOV ou link do YouTube/Vimeo/Instagram)"
+            >
+              <VideoIcon size={14} />
+              <span>Adicionar Vídeo</span>
             </button>
           </div>
         )}
@@ -728,10 +894,10 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 
         {/* Painel Inline de Adicionar Foto */}
         {showImageBox && !showHtmlSource && (
-          <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm space-y-3">
+          <div className="mt-2 rounded-lg border border-primary/30 bg-white p-3.5 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold uppercase text-slate-700">
-                Inserir Foto no Corpo da Matéria
+              <p className="text-xs font-bold uppercase text-primary flex items-center gap-1.5">
+                <ImageIcon size={14} /> Inserir Imagem no Corpo da Matéria
               </p>
               <button
                 type="button"
@@ -801,6 +967,77 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
                 className="rounded border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
               >
                 Inserir URL
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Painel Inline de Adicionar Vídeo */}
+        {showVideoBox && !showHtmlSource && (
+          <div className="mt-2 rounded-lg border border-accent/30 bg-white p-3.5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold uppercase text-accent flex items-center gap-1.5">
+                <VideoIcon size={14} /> Inserir Vídeo no Corpo da Matéria
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowVideoBox(false)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3 items-center">
+              <label className="flex items-center justify-center gap-2 cursor-pointer rounded-lg bg-accent hover:bg-accent-dark text-white px-4 py-2 text-xs font-bold transition-colors">
+                {uploadingVideo ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Enviando vídeo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={14} />
+                    <span>Subir Vídeo do Computador (MP4/MOV)</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime"
+                  className="hidden"
+                  disabled={uploadingVideo}
+                  onChange={(e) => {
+                    handleVideoFileUpload(e.target.files?.[0])
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+
+              <p className="text-[11px] text-slate-500">
+                Arquivos MP4, WebM ou MOV (até 50 MB) ou cole um link do YouTube, Shorts, Vimeo ou Instagram abaixo.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+              <input
+                type="text"
+                placeholder="Cole link do YouTube, Shorts, Vimeo, Instagram ou URL .mp4"
+                value={videoUrlInput}
+                onChange={(e) => setVideoUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleInsertVideoByUrl(e)
+                  }
+                }}
+                className="flex-1 rounded border border-slate-300 px-2.5 py-1.5 text-xs focus:outline-none focus:border-accent"
+              />
+              <button
+                type="button"
+                onClick={handleInsertVideoByUrl}
+                className="rounded border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                Inserir Vídeo
               </button>
             </div>
           </div>

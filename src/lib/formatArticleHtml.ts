@@ -1,4 +1,4 @@
-const BLOCK_TAG_START = /^<(h[1-6]|p|div|figure|blockquote|ul|ol|table|section|article|aside|hr)\b/i
+const BLOCK_TAG_START = /^<(h[1-6]|p|div|figure|blockquote|ul|ol|table|section|article|aside|hr|video|iframe)\b/i
 
 /**
  * Normalizes article body content mixing plain-text line breaks and HTML tags

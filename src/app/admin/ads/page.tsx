@@ -108,6 +108,7 @@ export default function AdminAdsPage() {
     try {
       const fd = new FormData()
       fd.append('file', file)
+      fd.append('folder', 'ads')
       const res = await fetch('/api/admin/upload', {
         method: 'POST',
         body: fd,
