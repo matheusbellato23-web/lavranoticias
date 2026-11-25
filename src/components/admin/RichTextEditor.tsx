@@ -222,6 +222,69 @@ const BG_COLORS = [
   '#0f172a',
 ]
 
+async function uploadImageToServer(file: File): Promise<string | null> {
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('folder', 'media')
+    const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
+    const data = await res.json()
+    return res.ok && data.url ? data.url : null
+  } catch {
+    return null
+  }
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+function dataUrlToFile(dataUrl: string, index: number): File | null {
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/)
+  if (!match) return null
+  const mime = match[1]
+  const b64 = match[2]
+  const binStr = atob(b64)
+  const len = binStr.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binStr.charCodeAt(i)
+  }
+  const ext = mime.split('/')[1]?.replace(/[^a-z0-9]/gi, '') || 'png'
+  return new File([bytes], `pasted-image-${Date.now()}-${index}.${ext}`, { type: mime })
+}
+
+async function processPastedHtmlImages(html: string, fallbackFiles: File[]): Promise<string> {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const imgs = Array.from(doc.querySelectorAll('img'))
+  let fileIdx = 0
+
+  for (let i = 0; i < imgs.length; i++) {
+    const img = imgs[i]
+    const src = img.getAttribute('src') || ''
+    if (src.startsWith('data:image/')) {
+      const file = dataUrlToFile(src, i)
+      if (file) {
+        const uploadedUrl = await uploadImageToServer(file)
+        if (uploadedUrl) img.setAttribute('src', uploadedUrl)
+      }
+    } else if (
+      (!src || src.startsWith('file://') || src.startsWith('blob:')) &&
+      fileIdx < fallbackFiles.length
+    ) {
+      const uploadedUrl = await uploadImageToServer(fallbackFiles[fileIdx++])
+      if (uploadedUrl) img.setAttribute('src', uploadedUrl)
+    }
+  }
+
+  return doc.body.innerHTML
+}
+
 export default function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const [showLinkBox, setShowLinkBox] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
@@ -229,12 +292,14 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   const [imageUrlInput, setImageUrlInput] = useState('')
   const [imageAltInput, setImageAltInput] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [pastingMedia, setPastingMedia] = useState(false)
   const [showVideoBox, setShowVideoBox] = useState(false)
   const [videoUrlInput, setVideoUrlInput] = useState('')
   const [uploadingVideo, setUploadingVideo] = useState(false)
   const [showColorMenu, setShowColorMenu] = useState<'text' | 'bg' | null>(null)
   const [showHtmlSource, setShowHtmlSource] = useState(false)
   const lastExternalValueRef = useRef<string>(value)
+  const editorRef = useRef<ReturnType<typeof useEditor>>(null)
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -262,7 +327,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       }),
       Image.configure({
         inline: false,
-        allowBase64: false,
+        allowBase64: true,
         HTMLAttributes: {
           class: 'w-full rounded my-4 object-cover',
         },
@@ -287,6 +352,117 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           '[&_a]:text-primary [&_a]:underline [&_mark]:px-1 [&_mark]:rounded ' +
           '[&_img]:max-w-full [&_img]:rounded [&_img]:my-4 [&_img]:shadow-sm [&_video]:w-full [&_video]:rounded [&_video]:my-4 [&_hr]:my-6 [&_hr]:border-slate-300',
       },
+      handlePaste: (_view, event) => {
+        const clipboard = event.clipboardData
+        if (!clipboard) return false
+
+        const imageFiles: File[] = []
+        if (clipboard.files && clipboard.files.length > 0) {
+          for (const f of Array.from(clipboard.files)) {
+            if (f.type.startsWith('image/')) imageFiles.push(f)
+          }
+        } else if (clipboard.items) {
+          for (const item of Array.from(clipboard.items)) {
+            if (item.kind === 'file' && item.type.startsWith('image/')) {
+              const f = item.getAsFile()
+              if (f) imageFiles.push(f)
+            }
+          }
+        }
+
+        const textHtml = clipboard.getData('text/html') || ''
+        const textPlain = (clipboard.getData('text/plain') || '').trim()
+
+        // 1. Imagem copiada direto (PrintScreen, WhatsApp, "Copiar imagem" sem texto)
+        if (imageFiles.length > 0 && !textPlain) {
+          event.preventDefault()
+          setPastingMedia(true)
+          ;(async () => {
+            try {
+              for (const file of imageFiles) {
+                const url = (await uploadImageToServer(file)) || (await fileToDataUrl(file))
+                if (url) {
+                  editorRef.current?.chain().focus().setImage({ src: url, alt: 'Imagem da matéria' }).run()
+                }
+              }
+            } finally {
+              setPastingMedia(false)
+            }
+          })()
+          return true
+        }
+
+        // 2. HTML copiado de Word/Docs/Sites contendo data:image ou file:// ou blob:
+        if (textHtml && /<img[^>]+src=["'](?:data:image\/|file:\/\/|blob:)/i.test(textHtml)) {
+          event.preventDefault()
+          setPastingMedia(true)
+          ;(async () => {
+            try {
+              const cleanedHtml = await processPastedHtmlImages(textHtml, imageFiles)
+              editorRef.current?.chain().focus().insertContent(cleanedHtml).run()
+            } finally {
+              setPastingMedia(false)
+            }
+          })()
+          return true
+        }
+
+        // 3. Código HTML contendo imagem/figure colado como texto puro (ex: <img src="...">, <figure>...</figure>, <p><img ...></p>)
+        if (!textHtml && textPlain.startsWith('<') && /<(?:img|figure)\b/i.test(textPlain)) {
+          event.preventDefault()
+          if (/src=["']data:image\//i.test(textPlain)) {
+            setPastingMedia(true)
+            ;(async () => {
+              try {
+                const cleaned = await processPastedHtmlImages(textPlain, [])
+                editorRef.current?.chain().focus().insertContent(cleaned).run()
+              } finally {
+                setPastingMedia(false)
+              }
+            })()
+          } else {
+            editorRef.current?.chain().focus().insertContent(textPlain).run()
+          }
+          return true
+        }
+
+        // 4. URL direta de imagem colada como texto puro
+        if (!textHtml && /^https?:\/\/\S+\.(?:jpg|jpeg|png|webp|gif)(?:\?\S*)?$/i.test(textPlain)) {
+          event.preventDefault()
+          editorRef.current?.chain().focus().setImage({ src: textPlain, alt: 'Imagem da matéria' }).run()
+          return true
+        }
+
+        return false
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved || !event.dataTransfer?.files?.length) return false
+        const imageFiles = Array.from(event.dataTransfer.files).filter((f) =>
+          f.type.startsWith('image/')
+        )
+        if (imageFiles.length === 0) return false
+
+        event.preventDefault()
+        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY })
+        setPastingMedia(true)
+        ;(async () => {
+          try {
+            for (const file of imageFiles) {
+              const url = await uploadImageToServer(file)
+              if (url) {
+                const chain = editorRef.current?.chain().focus()
+                if (coords) {
+                  chain?.setTextSelection(coords.pos)
+                }
+                chain?.setImage({ src: url, alt: 'Imagem da matéria' }).run()
+              }
+            }
+          } finally {
+            setPastingMedia(false)
+          }
+        })()
+        return true
+      },
     },
     onUpdate: ({ editor: ed }) => {
       const html = ed.getHTML()
@@ -294,6 +470,8 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       onChange(html)
     },
   })
+
+  editorRef.current = editor
 
   useEffect(() => {
     if (!editor) return
@@ -1044,6 +1222,14 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         )}
       </div>
 
+      {/* Indicador de upload ao colar/arrastar */}
+      {pastingMedia && (
+        <div className="flex items-center gap-2 bg-blue-50 border-b border-blue-200 px-4 py-2 text-xs font-semibold text-primary">
+          <Loader2 size={14} className="animate-spin" />
+          <span>Processando e enviando imagem colada...</span>
+        </div>
+      )}
+
       {/* Área de Edição */}
       {showHtmlSource ? (
         <textarea
@@ -1055,6 +1241,9 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       ) : (
         <EditorContent editor={editor} />
       )}
+      <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-[11px] text-slate-500 rounded-b-xl">
+        Dica: Você pode copiar e colar imagens diretamente aqui (<kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded text-[10px]">Ctrl+V</kbd>), inclusive copiadas de sites, Word, PrintScreen ou código HTML <code className="text-[10px]">&lt;img&gt;</code>, ou arrastar fotos do computador.
+      </div>
     </div>
   )
 }
