@@ -6,6 +6,7 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import AdBanner from '@/components/ui/AdBanner'
 import { formatArticleHtml } from '@/lib/formatArticleHtml'
+import { SITE_URL, SITE_NAME, DEFAULT_OG_IMAGE } from '@/lib/constants'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -22,24 +23,63 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
     include: { category: true },
   })
 
-  if (!post) {
+  if (!post || !post.published) {
     return {
       title: 'Notícia indisponível — Lavras Notícia',
-      robots: { index: false },
+      robots: { index: false, follow: false },
     }
   }
 
+  const canonicalUrl = `${SITE_URL}/noticia/${post.slug}`
+  const rawImage = post.coverImage || DEFAULT_OG_IMAGE
+  const ogImage = rawImage.startsWith('http') ? rawImage : `${SITE_URL}${rawImage}`
+  const description = post.excerpt || post.title
+
   return {
-    title: `${post.title} — Lavras Notícia`,
-    description: post.excerpt || post.title,
+    title: `${post.title} — ${SITE_NAME}`,
+    description,
+    keywords: [
+      post.category?.name || 'Notícias',
+      'Lavras',
+      'Guarulhos',
+      SITE_NAME,
+    ],
+    alternates: {
+      canonical: `/noticia/${post.slug}`,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
     openGraph: {
-      title: `${post.title} — Lavras Notícia`,
-      description: post.excerpt || undefined,
+      title: `${post.title} — ${SITE_NAME}`,
+      description,
+      url: canonicalUrl,
+      siteName: SITE_NAME,
+      locale: 'pt_BR',
       type: 'article',
-      images: post.coverImage ? [post.coverImage] : undefined,
+      publishedTime: new Date(post.publishedAt).toISOString(),
+      modifiedTime: new Date(post.updatedAt).toISOString(),
+      authors: [post.authorName || `Redação ${SITE_NAME}`],
+      section: post.category?.name || 'Geral',
+      images: [
+        {
+          url: ogImage,
+          alt: post.title,
+        },
+      ],
     },
     twitter: {
-      card: 'summary',
+      card: 'summary_large_image',
+      title: `${post.title} — ${SITE_NAME}`,
+      description,
+      images: [ogImage],
     },
   }
 }
@@ -73,9 +113,78 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
   const rawContent = post.content || post.excerpt || ''
   const formattedHtml = formatArticleHtml(rawContent)
+  const canonicalUrl = `${SITE_URL}/noticia/${post.slug}`
+  const rawImg = post.coverImage || DEFAULT_OG_IMAGE
+  const articleImgUrl = rawImg.startsWith('http') ? rawImg : `${SITE_URL}${rawImg}`
+
+  const articleJsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'NewsArticle',
+        headline: post.title,
+        description: post.excerpt || post.title,
+        image: [articleImgUrl],
+        datePublished: new Date(post.publishedAt).toISOString(),
+        dateModified: new Date(post.updatedAt).toISOString(),
+        articleSection: post.category?.name || 'Geral',
+        inLanguage: 'pt-BR',
+        mainEntityOfPage: {
+          '@type': 'WebPage',
+          '@id': canonicalUrl,
+        },
+        author: {
+          '@type': 'Person',
+          name: post.authorName || `Redação ${SITE_NAME}`,
+        },
+        publisher: {
+          '@type': 'NewsMediaOrganization',
+          name: SITE_NAME,
+          url: SITE_URL,
+          logo: {
+            '@type': 'ImageObject',
+            url: `${SITE_URL}/assets/logo-lavras.png`,
+          },
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Início',
+            item: SITE_URL,
+          },
+          ...(post.category
+            ? [
+                {
+                  '@type': 'ListItem',
+                  position: 2,
+                  name: post.category.name,
+                  item: `${SITE_URL}/categoria/${post.category.slug}`,
+                },
+              ]
+            : []),
+          {
+            '@type': 'ListItem',
+            position: post.category ? 3 : 2,
+            name: post.title,
+            item: canonicalUrl,
+          },
+        ],
+      },
+    ],
+  }
 
   return (
     <div className="min-h-screen bg-background font-sans text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(articleJsonLd).replace(/</g, '\\u003c'),
+        }}
+      />
       <Topbar />
       <header className="border-b-4 border-foreground bg-white">
         <div className="mx-auto max-w-6xl px-4 py-4">

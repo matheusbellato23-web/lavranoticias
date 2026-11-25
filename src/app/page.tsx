@@ -6,6 +6,7 @@ import AdBanner from '@/components/ui/AdBanner'
 import NewsSubmissionForm from '@/components/home/NewsSubmissionForm'
 import Link from 'next/link'
 import { Briefcase, ArrowRight, MessageCircle } from 'lucide-react'
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, INSTAGRAM_URL } from '@/lib/constants'
 
 // Always fetch fresh posts/events from DB
 export const dynamic = 'force-dynamic'
@@ -47,8 +48,45 @@ export default async function HomePage() {
     orderBy: { publishedAt: 'desc' },
   }))
 
+  const homeJsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'NewsMediaOrganization',
+        '@id': `${SITE_URL}/#organization`,
+        name: SITE_NAME,
+        url: SITE_URL,
+        description: SITE_DESCRIPTION,
+        logo: {
+          '@type': 'ImageObject',
+          url: `${SITE_URL}/assets/logo-lavras.png`,
+        },
+        sameAs: [INSTAGRAM_URL],
+        areaServed: {
+          '@type': 'Place',
+          name: 'Lavras, Guarulhos - SP, Brasil',
+        },
+      },
+      {
+        '@type': 'WebSite',
+        '@id': `${SITE_URL}/#website`,
+        url: SITE_URL,
+        name: `${SITE_NAME} — A informação do nosso bairro`,
+        description: SITE_DESCRIPTION,
+        inLanguage: 'pt-BR',
+        publisher: { '@id': `${SITE_URL}/#organization` },
+      },
+    ],
+  }
+
   return (
     <div className="min-h-screen bg-background font-sans text-foreground flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(homeJsonLd).replace(/</g, '\\u003c'),
+        }}
+      />
       <Topbar />
       <Header />
 
@@ -66,6 +104,8 @@ export default async function HomePage() {
                   alt={heroPost.title}
                   width={1600}
                   height={912}
+                  loading="eager"
+                  fetchPriority="high"
                   className="aspect-[16/9] w-full rounded object-cover shadow-sm"
                 />
               </Link>

@@ -1,3 +1,11 @@
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://lavrasnoticias.com'
+export const SITE_NAME = 'Lavras Notícia'
+export const SITE_TAGLINE = 'A informação do nosso bairro.'
+export const SITE_DESCRIPTION =
+  'Jornal digital comunitário e independente do bairro Lavras — Guarulhos, São Paulo. Notícias, trânsito, obras, prefeitura, utilidade pública, agenda e vagas de emprego.'
+export const DEFAULT_OG_IMAGE = '/assets/hero-bairro.jpg'
+export const INSTAGRAM_URL = 'https://www.instagram.com/lavras_noticias/'
+
 export interface CategoryDef {
   name: string
   slug: string

@@ -11,6 +11,7 @@ import {
   Calendar,
   Inbox,
   Megaphone,
+  BarChart3,
   LogOut,
   ExternalLink,
   Menu,
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { label: 'Agenda do Bairro', href: '/admin/events', icon: Calendar },
   { label: 'Sugestões dos Leitores', href: '/admin/leads', icon: Inbox },
   { label: 'Publicidade / Banners', href: '/admin/ads', icon: Megaphone },
+  { label: 'SEO & Analytics', href: '/admin/seo', icon: BarChart3 },
 ]
 
 export default function AdminLayoutClient({ children }: { children: React.ReactNode }) {

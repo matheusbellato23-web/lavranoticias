@@ -5,6 +5,7 @@ import Topbar from '@/components/layout/Topbar'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import AdBanner from '@/components/ui/AdBanner'
+import { SITE_URL, SITE_NAME, DEFAULT_OG_IMAGE } from '@/lib/constants'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -24,17 +25,29 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
     return { title: 'Categoria não encontrada — Lavras Notícia' }
   }
 
-  const desc = `Notícias de ${category.name} no Lavras Notícia, portal do bairro Lavras em Guarulhos.`
+  const desc = `Notícias de ${category.name} no ${SITE_NAME}, portal comunitário do bairro Lavras em Guarulhos (SP).`
+  const ogImg = `${SITE_URL}${DEFAULT_OG_IMAGE}`
   return {
-    title: `${category.name} — Lavras Notícia`,
+    title: `${category.name} — ${SITE_NAME}`,
     description: desc,
+    keywords: [category.name, 'Lavras', 'Guarulhos', 'Notícias', SITE_NAME],
+    alternates: {
+      canonical: `/categoria/${params.slug}`,
+    },
     openGraph: {
-      title: `${category.name} — Lavras Notícia`,
+      title: `${category.name} — ${SITE_NAME}`,
       description: desc,
+      url: `${SITE_URL}/categoria/${params.slug}`,
+      siteName: SITE_NAME,
+      locale: 'pt_BR',
       type: 'website',
+      images: [{ url: ogImg, alt: `${category.name} — ${SITE_NAME}` }],
     },
     twitter: {
       card: 'summary_large_image',
+      title: `${category.name} — ${SITE_NAME}`,
+      description: desc,
+      images: [ogImg],
     },
   }
 }
@@ -54,8 +67,39 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     notFound()
   }
 
+  const categoryJsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'CollectionPage',
+        name: `${category.name} — ${SITE_NAME}`,
+        description: `Notícias de ${category.name} no bairro Lavras em Guarulhos.`,
+        url: `${SITE_URL}/categoria/${category.slug}`,
+        inLanguage: 'pt-BR',
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Início', item: SITE_URL },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: category.name,
+            item: `${SITE_URL}/categoria/${category.slug}`,
+          },
+        ],
+      },
+    ],
+  }
+
   return (
     <div className="min-h-screen bg-background font-sans text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(categoryJsonLd).replace(/</g, '\\u003c'),
+        }}
+      />
       <Topbar />
       <header className="border-b-4 border-foreground bg-white">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-5">
