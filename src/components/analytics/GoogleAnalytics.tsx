@@ -1,7 +1,6 @@
 'use client'
 
 import { Suspense, useEffect, useRef } from 'react'
-import Script from 'next/script'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useReportWebVitals } from 'next/web-vitals'
 import {
@@ -41,6 +40,7 @@ function AnalyticsPageTracker({ gaId }: { gaId?: string }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const scrollMilestonesRef = useRef<Set<number>>(new Set())
+  const lastTrackedUrlRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!pathname || pathname.startsWith('/admin')) return
@@ -48,12 +48,27 @@ function AnalyticsPageTracker({ gaId }: { gaId?: string }) {
 
     const query = searchParams?.toString()
     const url = query ? `${pathname}?${query}` : pathname
+    const contentGroup = classifyPortalContentGroup(pathname)
+
+    if (typeof window.gtag === 'function') {
+      window.gtag('set', { content_group: contentGroup })
+    }
+
+    // Initial page_view is fired directly by the <head> gtag('config', ...) snippet;
+    // fire page_view here only on subsequent SPA client navigations to avoid double counting.
+    if (lastTrackedUrlRef.current === null) {
+      lastTrackedUrlRef.current = url
+      return
+    }
+
+    if (lastTrackedUrlRef.current === url) return
+    lastTrackedUrlRef.current = url
 
     trackAnalyticsEvent('page_view', {
       page_path: url,
       page_location: window.location.href,
       page_title: document.title,
-      content_group: classifyPortalContentGroup(pathname),
+      content_group: contentGroup,
       ...(gaId ? { send_to: gaId } : {}),
     })
   }, [pathname, searchParams, gaId])
@@ -175,40 +190,6 @@ export default function GoogleAnalytics({
 
   return (
     <>
-      {hasGtm && (
-        <Script id="google-tag-manager-init" strategy="afterInteractive">
-          {`
-            (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-            })(window,document,'script','dataLayer','${cleanGtm}');
-          `}
-        </Script>
-      )}
-
-      {hasGa && (
-        <>
-          <Script
-            src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`}
-            strategy="afterInteractive"
-          />
-          <Script id="google-analytics-init" strategy="afterInteractive">
-            {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              window.gtag = gtag;
-              gtag('js', new Date());
-              gtag('config', '${gaId}', {
-                send_page_view: false,
-                anonymize_ip: true,
-                cookie_flags: 'SameSite=None;Secure'
-              });
-            `}
-          </Script>
-        </>
-      )}
-
       <WebVitalsReporter enabled={hasGa || hasGtm} />
       <Suspense fallback={null}>
         <AnalyticsPageTracker gaId={hasGa ? gaId : undefined} />

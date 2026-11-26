@@ -3,6 +3,7 @@ import { Archivo, Archivo_Black, Source_Serif_4 } from 'next/font/google'
 import './globals.css'
 import { SITE_URL, SITE_NAME } from '@/lib/constants'
 import { getSiteSeoSettings } from '@/lib/seo'
+import { isValidGaMeasurementId, isValidGtmId } from '@/lib/analytics-events'
 import GoogleAnalytics, { GoogleTagManagerNoScript } from '@/components/analytics/GoogleAnalytics'
 
 const archivo = Archivo({
@@ -122,6 +123,10 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   const seo = await getSiteSeoSettings()
+  const gaId = seo.gaMeasurementId.trim()
+  const gtmId = seo.gtmId.trim()
+  const hasGa = isValidGaMeasurementId(gaId)
+  const hasGtm = isValidGtmId(gtmId)
 
   return (
     <html lang="pt-BR" className={`${archivo.variable} ${archivoBlack.variable} ${sourceSerif.variable}`}>
@@ -133,10 +138,36 @@ export default async function RootLayout({
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="shortcut icon" href="/favicon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/favicon.png" />
+
+        {/* Google Tag (gtag.js) injetada diretamente no <head> SSR para detecção imediata */}
+        {hasGa && (
+          <>
+            <script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`}
+            />
+            <script
+              id="google-analytics-init"
+              dangerouslySetInnerHTML={{
+                __html: `window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} window.gtag = gtag; gtag('js', new Date()); if (!window.location.pathname.startsWith('/admin')) { gtag('config', '${gaId}', { anonymize_ip: true, cookie_flags: 'SameSite=None;Secure' }); }`,
+              }}
+            />
+          </>
+        )}
+
+        {/* Google Tag Manager (opcional, quando GTM_ID configurado) */}
+        {hasGtm && (
+          <script
+            id="google-tag-manager-init"
+            dangerouslySetInnerHTML={{
+              __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');`,
+            }}
+          />
+        )}
       </head>
       <body className="font-sans min-h-screen bg-background text-foreground flex flex-col">
-        <GoogleTagManagerNoScript gtmId={seo.gtmId} />
-        <GoogleAnalytics measurementId={seo.gaMeasurementId} gtmId={seo.gtmId} />
+        <GoogleTagManagerNoScript gtmId={gtmId} />
+        <GoogleAnalytics measurementId={gaId} gtmId={gtmId} />
         {children}
       </body>
     </html>
