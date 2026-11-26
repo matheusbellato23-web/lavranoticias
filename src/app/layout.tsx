@@ -139,17 +139,17 @@ export default async function RootLayout({
         <link rel="shortcut icon" href="/favicon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/favicon.png" />
 
-        {/* Google Tag (gtag.js) injetada diretamente no <head> SSR para detecção imediata */}
+        {/* Google Tag Manager — snippet exato fornecido pelo Google */}
         {hasGa && (
           <>
             <script
               async
-              src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`}
+              src={`https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(gaId)}`}
             />
             <script
               id="google-analytics-init"
               dangerouslySetInnerHTML={{
-                __html: `window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} window.gtag = gtag; gtag('js', new Date()); if (!window.location.pathname.startsWith('/admin')) { gtag('config', '${gaId}', { anonymize_ip: true, cookie_flags: 'SameSite=None;Secure' }); }`,
+                __html: `window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} window.gtag = gtag; gtag('js', new Date());`,
               }}
             />
           </>
