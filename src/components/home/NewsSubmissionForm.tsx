@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Send, UploadCloud, CheckCircle2, AlertCircle } from 'lucide-react'
+import { trackAnalyticsEvent } from '@/lib/analytics-events'
 
 export default function NewsSubmissionForm() {
   const [form, setForm] = useState({
@@ -50,6 +51,10 @@ export default function NewsSubmissionForm() {
         throw new Error('Falha ao enviar sugestão. Tente novamente.')
       }
 
+      trackAnalyticsEvent('news_tip_submitted', {
+        event_category: 'conversion',
+        has_attachment: Boolean(file),
+      })
       setStatus('success')
       setForm({ name: '', contact: '', subject: '', message: '' })
       setFile(null)

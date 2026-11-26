@@ -95,6 +95,14 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     notFound()
   }
 
+  // Non-blocking internal view counter for editorial/report rankings
+  void prisma.post
+    .update({
+      where: { id: post.id },
+      data: { views: { increment: 1 } },
+    })
+    .catch(() => {})
+
   // Related posts
   const relatedPosts = await prisma.post.findMany({
     where: {
