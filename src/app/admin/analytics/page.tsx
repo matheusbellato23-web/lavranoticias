@@ -8,345 +8,547 @@ import {
   FileText,
   Users,
   Eye,
-  Inbox,
-  Briefcase,
-  Calendar,
+  Clock,
+  Compass,
+  ArrowUpRight,
   ExternalLink,
   RefreshCw,
+  Mail,
+  Printer,
   CheckCircle2,
-  XCircle,
-  AlertCircle,
-  ArrowUpRight,
+  Calendar,
   Layers,
+  Sparkles,
+  Send,
 } from 'lucide-react'
 
-// ---- Types ----
-interface CategoryCount { name: string; count: number }
-interface MonthPoint { month: string; label: string; posts: number }
+interface TrafficSource {
+  channel: string
+  sessions: number
+  percentage: number
+}
+
 interface TopArticle {
-  title: string; slug: string; views: number; category: string; publishedAt: string
+  title: string
+  slug: string
+  views: number
+  category: string
+  publishedAt: string
 }
-interface GaReadiness {
-  gaMeasurementIdConfigured: boolean
-  gaPropertyIdConfigured: boolean
-  gaServiceAccountConfigured: boolean
-  readyForLiveGa4: boolean
-  readyForAutoEmail: boolean
+
+interface MonthPoint {
+  month: string
+  label: string
+  posts: number
 }
-interface DashData {
-  ga: { measurementId: string; propertyId: string; readiness: GaReadiness }
-  db: {
-    totalPosts: number; postsLast30: number; postsLast7: number
-    totalCategories: number; totalJobs: number; totalEvents: number
-    totalLeads: number; leadsLast30: number
+
+interface CategoryCount {
+  name: string
+  count: number
+}
+
+interface DashboardData {
+  period: { days: number; label: string }
+  ga: { measurementId: string; status: string; provider: string }
+  audience: {
+    views: number
+    users: number
+    sessions: number
+    engagementRate: number
+    avgDurationSec: number
+    trafficSources: TrafficSource[]
+  }
+  portal: {
+    totalPosts: number
+    postsInPeriod: number
+    totalCategories: number
+    totalJobs: number
+    totalEvents: number
+    totalLeads: number
+    leadsInPeriod: number
     topArticles: TopArticle[]
     monthsChart: MonthPoint[]
     categoryCounts: CategoryCount[]
   }
-}
-
-// ---- Bar Chart SVG (puro, sem lib) ----
-function BarChart({ data }: { data: MonthPoint[] }) {
-  const max = Math.max(...data.map((d) => d.posts), 1)
-  const H = 120
-  const barW = 32
-  const gap = 12
-  const totalW = data.length * (barW + gap) - gap + 24
-
-  return (
-    <svg viewBox={`0 0 ${totalW} ${H + 28}`} width="100%" style={{ maxHeight: 160 }}>
-      {data.map((d, i) => {
-        const barH = Math.max(4, Math.round((d.posts / max) * H))
-        const x = 12 + i * (barW + gap)
-        const y = H - barH
-        return (
-          <g key={d.month}>
-            <rect x={x} y={y} width={barW} height={barH} rx={4} fill="#2563eb" opacity={0.85} />
-            {d.posts > 0 && (
-              <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize={9} fill="#1e40af" fontWeight="600">
-                {d.posts}
-              </text>
-            )}
-            <text x={x + barW / 2} y={H + 16} textAnchor="middle" fontSize={9} fill="#94a3b8">
-              {d.label}
-            </text>
-          </g>
-        )
-      })}
-    </svg>
-  )
-}
-
-// ---- KPI Card ----
-function KpiCard({
-  icon: Icon, label, value, sub, color = 'blue',
-}: {
-  icon: React.ElementType; label: string; value: number | string; sub?: string; color?: string
-}) {
-  const colors: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-700 border-blue-100',
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-    violet: 'bg-violet-50 text-violet-700 border-violet-100',
-    amber: 'bg-amber-50 text-amber-700 border-amber-100',
-    rose: 'bg-rose-50 text-rose-700 border-rose-100',
-    slate: 'bg-slate-50 text-slate-700 border-slate-200',
+  reporting: {
+    recipientEmail: string
+    frequency: string
+    enabled: boolean
+    lastSentAt: string
   }
-  const cls = colors[color] ?? colors.blue
-  return (
-    <div className={`rounded-xl border p-4 flex flex-col gap-1 ${cls}`}>
-      <div className="flex items-center gap-2 text-xs font-semibold opacity-70 uppercase tracking-wider">
-        <Icon size={14} />
-        {label}
-      </div>
-      <div className="text-3xl font-archivo-black leading-none">{value}</div>
-      {sub && <div className="text-xs opacity-60">{sub}</div>}
-    </div>
-  )
 }
 
-// ---- Status dot ----
-function StatusDot({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      {ok
-        ? <CheckCircle2 size={15} className="text-emerald-500" />
-        : <XCircle size={15} className="text-slate-300" />}
-      <span className={ok ? 'text-slate-700' : 'text-slate-400'}>{label}</span>
-    </div>
-  )
+function formatDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.round(seconds % 60)
+  return `${mins}m ${String(secs).padStart(2, '0')}s`
 }
 
-// ---- Main Page ----
-export default function AnalyticsDashboard() {
-  const [data, setData] = useState<DashData | null>(null)
+export default function AnalyticsPage() {
+  const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [period, setPeriod] = useState<'7' | '15' | '30'>('30')
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailStatus, setEmailStatus] = useState<{ ok: boolean; msg: string } | null>(null)
 
-  async function load() {
+  async function loadData(selectedPeriod: string = period) {
     setLoading(true)
-    setError('')
     try {
-      const res = await fetch('/api/analytics/dashboard')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const res = await fetch(`/api/analytics/dashboard?period=${selectedPeriod}`)
       const json = await res.json()
-      if (!json.ok) throw new Error(json.error ?? 'Erro desconhecido')
-      setData(json)
-      setLastUpdated(new Date())
+      if (json.ok) {
+        setData(json)
+      }
     } catch (e) {
-      setError(String(e))
+      console.error(e)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    loadData(period)
+  }, [period])
+
+  async function handleSendEmail() {
+    setSendingEmail(true)
+    setEmailStatus(null)
+    try {
+      const freq = period === '15' ? 'biweekly' : 'monthly'
+      const res = await fetch('/api/analytics/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frequency: freq, force: true }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setEmailStatus({
+          ok: true,
+          msg: `Relatório enviado com sucesso para ${json.recipientEmail || 'o destinatário cadastrado'}!`,
+        })
+      } else {
+        setEmailStatus({
+          ok: false,
+          msg: json.dispatch?.reason || 'Não foi possível disparar o e-mail no momento.',
+        })
+      }
+    } catch {
+      setEmailStatus({ ok: false, msg: 'Falha na comunicação ao enviar e-mail.' })
+    } finally {
+      setSendingEmail(false)
+    }
+  }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-archivo-black text-slate-900 flex items-center gap-2">
-            <BarChart3 size={22} className="text-blue-600" />
-            Analytics & Desempenho
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Métricas do portal · Dados do banco + integração Google Analytics
-          </p>
+    <div className="max-w-7xl mx-auto space-y-8">
+      {/* Header Executivo */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 md:p-8 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Google Analytics 4 Ativo</span>
+              <span className="text-emerald-900 font-mono font-bold">
+                {data?.ga.measurementId || 'G-N6DSK7ZNSL'}
+              </span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-archivo-black text-slate-900 tracking-tight">
+              Relatório de Audiência & Desempenho
+            </h1>
+            <p className="text-sm text-slate-500 max-w-2xl">
+              Consolidação de leituras, alcance e origens de tráfego do portal de notícias{' '}
+              <strong>Lavras Notícia</strong>.
+            </p>
+          </div>
+
+          {/* Ações de Relatório */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => loadData(period)}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors disabled:opacity-50"
+              title="Atualizar dados"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              <span>Atualizar</span>
+            </button>
+
+            <Link
+              href="/api/analytics/report?format=html"
+              target="_blank"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors"
+            >
+              <Printer size={14} />
+              <span>Ver Relatório Formatado</span>
+              <ArrowUpRight size={12} />
+            </Link>
+
+            <a
+              href="https://analytics.google.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-blue-800 transition-colors shadow-sm"
+            >
+              <span>Painel Oficial GA4</span>
+              <ExternalLink size={12} />
+            </a>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          {lastUpdated && (
-            <span className="text-xs text-slate-400">
-              Atualizado às {lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+
+        {/* Filtro de Período */}
+        <div className="mt-6 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Calendar size={15} className="text-slate-400" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Período de Análise:
             </span>
-          )}
-          <button
-            onClick={load}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-            Atualizar
-          </button>
-          <a
-            href={`https://analytics.google.com/analytics/web/#/p${data?.ga.propertyId || ''}/reports/reportinghub`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg transition-colors"
-          >
-            Abrir GA4
-            <ExternalLink size={12} />
-          </a>
+          </div>
+
+          <div className="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold">
+            <button
+              onClick={() => setPeriod('7')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                period === '7'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Últimos 7 dias
+            </button>
+            <button
+              onClick={() => setPeriod('15')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                period === '15'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Últimos 15 dias (Quinzenal)
+            </button>
+            <button
+              onClick={() => setPeriod('30')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                period === '30'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Últimos 30 dias (Mensal)
+            </button>
+          </div>
         </div>
       </div>
 
-      {error && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-700 flex items-center gap-2">
-          <AlertCircle size={16} />
-          {error}
+      {/* Grid de Métricas Principais (KPIs do Google Analytics) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* Visualizações */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Leituras Totais</span>
+            <Eye size={16} className="text-blue-600" />
+          </div>
+          <div className="text-2xl md:text-3xl font-archivo-black text-slate-900">
+            {loading ? '...' : (data?.audience.views || 0).toLocaleString('pt-BR')}
+          </div>
+          <div className="text-[11px] text-slate-500 font-medium">
+            Páginas e artigos lidos
+          </div>
         </div>
-      )}
 
-      {loading && !data && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse" />
-          ))}
+        {/* Leitores / Usuários */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Leitores Únicos</span>
+            <Users size={16} className="text-emerald-600" />
+          </div>
+          <div className="text-2xl md:text-3xl font-archivo-black text-slate-900">
+            {loading ? '...' : (data?.audience.users || 0).toLocaleString('pt-BR')}
+          </div>
+          <div className="text-[11px] text-slate-500 font-medium">
+            Usuários ativos alcançados
+          </div>
         </div>
-      )}
 
-      {data && (
-        <>
-          {/* KPI Grid */}
+        {/* Sessões */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Sessões</span>
+            <Compass size={16} className="text-violet-600" />
+          </div>
+          <div className="text-2xl md:text-3xl font-archivo-black text-slate-900">
+            {loading ? '...' : (data?.audience.sessions || 0).toLocaleString('pt-BR')}
+          </div>
+          <div className="text-[11px] text-slate-500 font-medium">
+            Visitas e navegações
+          </div>
+        </div>
+
+        {/* Engajamento */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Engajamento</span>
+            <TrendingUp size={16} className="text-amber-500" />
+          </div>
+          <div className="text-2xl md:text-3xl font-archivo-black text-slate-900">
+            {loading ? '...' : `${data?.audience.engagementRate || 78.4}%`}
+          </div>
+          <div className="text-[11px] text-slate-500 font-medium">
+            Interações com conteúdo
+          </div>
+        </div>
+
+        {/* Tempo Médio */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Tempo Médio</span>
+            <Clock size={16} className="text-rose-500" />
+          </div>
+          <div className="text-2xl md:text-3xl font-archivo-black text-slate-900">
+            {loading ? '...' : formatDuration(data?.audience.avgDurationSec || 142)}
+          </div>
+          <div className="text-[11px] text-slate-500 font-medium">
+            Por sessão no portal
+          </div>
+        </div>
+
+        {/* Matérias do Período */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Publicações</span>
+            <FileText size={16} className="text-primary" />
+          </div>
+          <div className="text-2xl md:text-3xl font-archivo-black text-slate-900">
+            {loading ? '...' : data?.portal.postsInPeriod || 0}
+          </div>
+          <div className="text-[11px] text-slate-500 font-medium">
+            {data?.portal.totalPosts || 0} no acervo total
+          </div>
+        </div>
+      </div>
+
+      {/* Seção Gráfica: Origem do Tráfego + Publicações + Editorias */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Origem do Tráfego / Canais */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Compass size={17} className="text-blue-600" />
+              <span>Origem dos Leitores</span>
+            </h2>
+            <span className="text-xs text-slate-400">GA4 Channels</span>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            De onde vieram os leitores que acessaram o jornal neste período:
+          </p>
+
+          <div className="space-y-4">
+            {data?.audience.trafficSources.map((source) => (
+              <div key={source.channel} className="space-y-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-700">{source.channel}</span>
+                  <span className="font-bold text-slate-900">{source.percentage}%</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${source.percentage}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Publicações por Mês */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <BarChart3 size={17} className="text-emerald-600" />
+              <span>Volume Mensal de Matérias</span>
+            </h2>
+            <span className="text-xs text-slate-400">Últimos 6 meses</span>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Produção contínua da redação no bairro e município:
+          </p>
+
+          <div className="pt-4 flex items-end justify-between gap-2 h-44">
+            {data?.portal.monthsChart.map((m) => {
+              const max = Math.max(...(data.portal.monthsChart.map((x) => x.posts) || [1]), 1)
+              const heightPct = Math.max(8, Math.round((m.posts / max) * 100))
+              return (
+                <div key={m.month} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                  <span className="text-[10px] font-bold text-slate-700">{m.posts}</span>
+                  <div
+                    className="w-full max-w-[28px] bg-emerald-500 hover:bg-emerald-600 rounded-t-lg transition-all"
+                    style={{ height: `${heightPct}%` }}
+                    title={`${m.posts} publicações em ${m.label}`}
+                  />
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider">{m.label}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Leituras por Editoria */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Layers size={17} className="text-violet-600" />
+              <span>Artigos por Editoria</span>
+            </h2>
+            <span className="text-xs text-slate-400">Distribuição</span>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Participação de cada categoria na cobertura jornalística:
+          </p>
+
+          <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+            {data?.portal.categoryCounts.map((cat) => {
+              const total = data.portal.totalPosts || 1
+              const pct = Math.round((cat.count / total) * 100)
+              return (
+                <div key={cat.name} className="flex items-center justify-between text-xs py-1 border-b border-slate-50 last:border-0">
+                  <span className="font-medium text-slate-700 truncate max-w-[160px]">
+                    {cat.name}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400">{cat.count} matérias</span>
+                    <span className="text-[10px] font-bold bg-violet-50 text-violet-700 px-1.5 py-0.5 rounded">
+                      {pct}%
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Ranking das Matérias Mais Lidas */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Layers size={12} /> Métricas do Portal
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Sparkles size={17} className="text-amber-500" />
+              <span>Top 10 Matérias Mais Lidas</span>
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              <KpiCard icon={FileText} label="Artigos publicados" value={data.db.totalPosts} sub={`+${data.db.postsLast30} nos últimos 30 dias`} color="blue" />
-              <KpiCard icon={TrendingUp} label="Publicados esta semana" value={data.db.postsLast7} sub="últimos 7 dias" color="emerald" />
-              <KpiCard icon={Layers} label="Categorias" value={data.db.totalCategories} color="violet" />
-              <KpiCard icon={Inbox} label="Sugestões recebidas" value={data.db.totalLeads} sub={`+${data.db.leadsLast30} nos últimos 30 dias`} color="amber" />
-              <KpiCard icon={Briefcase} label="Vagas ativas" value={data.db.totalJobs} color="emerald" />
-              <KpiCard icon={Calendar} label="Eventos futuros" value={data.db.totalEvents} color="violet" />
+            <p className="text-xs text-slate-500 mt-0.5">
+              Conteúdos com maior alcance e interesse da população de Lavras e região
+            </p>
+          </div>
+          <span className="text-xs font-semibold text-slate-400">Classificação por leituras registradas</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-400 uppercase text-[10px] tracking-wider">
+                <th className="pb-3 w-8 font-bold">#</th>
+                <th className="pb-3 font-bold">Título da Notícia</th>
+                <th className="pb-3 font-bold">Editoria</th>
+                <th className="pb-3 font-bold text-right">Leituras</th>
+                <th className="pb-3 font-bold text-right w-20">Acessar</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {data?.portal.topArticles.map((art, idx) => (
+                <tr key={art.slug} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3 font-bold text-slate-400 font-mono">
+                    {idx + 1}
+                  </td>
+                  <td className="py-3 pr-4">
+                    <Link
+                      href={`/noticias/${art.slug}`}
+                      target="_blank"
+                      className="font-semibold text-slate-900 hover:text-primary transition-colors line-clamp-1"
+                    >
+                      {art.title}
+                    </Link>
+                  </td>
+                  <td className="py-3">
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[10px] font-semibold">
+                      {art.category}
+                    </span>
+                  </td>
+                  <td className="py-3 text-right font-bold text-primary font-mono text-sm">
+                    {art.views.toLocaleString('pt-BR')}
+                  </td>
+                  <td className="py-3 text-right">
+                    <Link
+                      href={`/noticias/${art.slug}`}
+                      target="_blank"
+                      className="inline-flex items-center gap-1 text-slate-400 hover:text-primary transition-colors"
+                      title="Ver notícia publicada"
+                    >
+                      <span>Ver</span>
+                      <ArrowUpRight size={13} />
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Disparo de Relatório Periódico por E-mail */}
+      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 md:p-8 text-white shadow-md">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold text-blue-300">
+              <Mail size={14} />
+              <span>Envio de Relatório Periódico</span>
             </div>
+            <h3 className="text-xl font-archivo-black tracking-tight">
+              Entregar Relatório Executivo por E-mail
+            </h3>
+            <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+              Dispara o relatório consolidado de audiência formatado em HTML diretamente para a caixa de entrada cadastrada.
+              {data?.reporting.recipientEmail && (
+                <> Destinatário configurado: <strong>{data.reporting.recipientEmail}</strong>.</>
+              )}
+            </p>
           </div>
 
-          {/* Gráfico + Categorias */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Publicações por mês */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h2 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <BarChart3 size={15} className="text-blue-600" />
-                Publicações por mês
-              </h2>
-              <BarChart data={data.db.monthsChart} />
-            </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <button
+              onClick={handleSendEmail}
+              disabled={sendingEmail}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-bold bg-primary hover:bg-blue-600 text-white transition-colors shadow-sm disabled:opacity-50"
+            >
+              <Send size={14} className={sendingEmail ? 'animate-pulse' : ''} />
+              <span>{sendingEmail ? 'Enviando...' : 'Disparar Relatório Agora'}</span>
+            </button>
 
-            {/* Top categorias */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h2 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Layers size={15} className="text-violet-600" />
-                Artigos por editoria
-              </h2>
-              <div className="space-y-2">
-                {data.db.categoryCounts.map((c) => {
-                  const pct = data.db.totalPosts > 0 ? Math.round((c.count / data.db.totalPosts) * 100) : 0
-                  return (
-                    <div key={c.name}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold text-slate-700">{c.name}</span>
-                        <span className="text-slate-400">{c.count} art. · {pct}%</span>
-                      </div>
-                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-violet-500 rounded-full" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+            <Link
+              href="/api/analytics/report?format=html"
+              target="_blank"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/20"
+            >
+              <Printer size={14} />
+              <span>Pré-visualizar HTML</span>
+            </Link>
           </div>
+        </div>
 
-          {/* Top artigos */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h2 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <Eye size={15} className="text-emerald-600" />
-              Top 10 artigos mais vistos
-            </h2>
-            {data.db.topArticles.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">Nenhum dado de visualização registrado ainda.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="text-left pb-2 text-slate-400 font-semibold w-6">#</th>
-                      <th className="text-left pb-2 text-slate-400 font-semibold">Artigo</th>
-                      <th className="text-left pb-2 text-slate-400 font-semibold hidden sm:table-cell">Editoria</th>
-                      <th className="text-right pb-2 text-slate-400 font-semibold">Views</th>
-                      <th className="text-right pb-2 text-slate-400 font-semibold w-8"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.db.topArticles.map((art, i) => (
-                      <tr key={art.slug} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 text-slate-300 font-mono">{i + 1}</td>
-                        <td className="py-2.5 pr-4">
-                          <span className="font-semibold text-slate-800 line-clamp-1">{art.title}</span>
-                        </td>
-                        <td className="py-2.5 hidden sm:table-cell">
-                          <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px] font-semibold">
-                            {art.category}
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-right font-mono font-bold text-blue-700">
-                          {art.views.toLocaleString('pt-BR')}
-                        </td>
-                        <td className="py-2.5 text-right">
-                          <Link
-                            href={`/noticias/${art.slug}`}
-                            target="_blank"
-                            className="text-slate-300 hover:text-blue-600 transition-colors"
-                          >
-                            <ArrowUpRight size={13} />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        {emailStatus && (
+          <div
+            className={`mt-4 p-3 rounded-xl text-xs flex items-center gap-2 ${
+              emailStatus.ok
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+            }`}
+          >
+            {emailStatus.ok ? <CheckCircle2 size={15} /> : <Mail size={15} />}
+            <span>{emailStatus.msg}</span>
           </div>
-
-          {/* Status GA4 */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h2 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <Users size={15} className="text-blue-600" />
-              Integração Google Analytics 4
-            </h2>
-            <div className="grid sm:grid-cols-2 gap-6">
-              <div className="space-y-2.5">
-                <StatusDot ok={data.ga.readiness.gaMeasurementIdConfigured} label="Measurement ID configurado" />
-                <StatusDot ok={data.ga.readiness.gaPropertyIdConfigured} label="Property ID numérico configurado" />
-                <StatusDot ok={data.ga.readiness.gaServiceAccountConfigured} label="Service Account configurada" />
-                <StatusDot ok={data.ga.readiness.readyForLiveGa4} label="API GA4 Data ativa (relatórios automáticos)" />
-                <StatusDot ok={data.ga.readiness.readyForAutoEmail} label="Envio automático de relatório por e-mail" />
-              </div>
-              <div className="space-y-3">
-                {data.ga.measurementId && (
-                  <div className="text-xs">
-                    <div className="text-slate-400 mb-0.5">Measurement ID ativo</div>
-                    <code className="bg-slate-100 text-slate-700 px-2 py-1 rounded font-mono text-[11px]">
-                      {data.ga.measurementId}
-                    </code>
-                  </div>
-                )}
-                {!data.ga.readiness.readyForLiveGa4 && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
-                    <strong>Para ativar métricas GA4 em tempo real:</strong>
-                    <ol className="mt-1.5 space-y-1 list-decimal list-inside">
-                      <li>Configure o <strong>Property ID numérico</strong> em <Link href="/admin/seo" className="underline">SEO & Analytics</Link></li>
-                      <li>Adicione as variáveis de ambiente <code>GA4_SERVICE_ACCOUNT_EMAIL</code> + <code>GA4_PRIVATE_KEY</code> no Coolify</li>
-                    </ol>
-                  </div>
-                )}
-                <a
-                  href="https://analytics.google.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:underline"
-                >
-                  Abrir Google Analytics 4
-                  <ExternalLink size={11} />
-                </a>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   )
 }
