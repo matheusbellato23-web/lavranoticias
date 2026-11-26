@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, UploadCloud, CheckCircle2, AlertCircle, Phone } from 'lucide-react'
+import { Send, UploadCloud, CheckCircle2, AlertCircle } from 'lucide-react'
 
 export default function NewsSubmissionForm() {
   const [form, setForm] = useState({
@@ -63,32 +63,6 @@ export default function NewsSubmissionForm() {
 
   return (
     <div className="bg-slate-50 border border-slate-300 rounded-lg p-6 sm:p-8">
-      {/* Top Banner WhatsApp direct */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
-            <Phone size={20} />
-          </div>
-          <div>
-            <h4 className="font-archivo-black text-xs sm:text-sm text-emerald-950 uppercase">
-              Prefere enviar pelo WhatsApp?
-            </h4>
-            <p className="text-xs text-emerald-700">
-              Canal direto com a redação: fotos, vídeos e relatos em tempo real.
-            </p>
-          </div>
-        </div>
-
-        <a
-          href="https://wa.me/5511978098746?text=Ol%C3%A1!%20Quero%20enviar%20uma%20not%C3%ADcia%20para%20o%20Lavras%20Not%C3%ADcia."
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 bg-[#25d366] hover:bg-[#20ba59] text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded shadow-sm hover:shadow transition-all shrink-0"
-        >
-          <span>Abrir WhatsApp (11) 97809-8746</span>
-        </a>
-      </div>
-
       {/* Success notification */}
       {status === 'success' && (
         <div className="p-4 mb-6 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-lg flex items-start gap-3">

@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export default function Footer() {
   return (
-    <footer className="mt-12 bg-foreground py-8 text-background">
+    <footer className="mt-8 bg-foreground py-8 text-background">
       <div className="mx-auto max-w-6xl px-4 text-sm">
         <p className="font-display text-xl uppercase">Lavras Notícia</p>
         <p className="mt-1 opacity-75">

@@ -46,12 +46,14 @@ function AdSlotFigure({
   width,
   height,
   label,
+  eager = false,
 }: {
   ad: AdItem
   src: string
   width: number
   height: number
   label: string
+  eager?: boolean
 }) {
   const imgElement = (
     <img
@@ -59,7 +61,8 @@ function AdSlotFigure({
       alt={ad.alt}
       width={width}
       height={height}
-      loading="lazy"
+      loading={eager ? 'eager' : 'lazy'}
+      fetchPriority={eager ? 'high' : undefined}
       className="h-auto w-full group-hover:opacity-95 transition-opacity"
     />
   )
@@ -144,9 +147,11 @@ export default function AdBanner({
 
   const ad = ads[currentAdIndex % ads.length] || DEFAULT_AD
 
+  const eager = position === 'top' || position === 'mid'
+
   const wrapperSpacing =
     position === 'top'
-      ? 'mb-8'
+      ? 'mb-6'
       : position === 'content'
       ? 'my-3'
       : position === 'mid'
@@ -156,7 +161,7 @@ export default function AdBanner({
   if (format === 'rectangle' || position === 'sidebar') {
     return (
       <div className={`w-full ${wrapperSpacing} ${className}`}>
-        <AdSlotFigure ad={ad} src={ad.img300} width={300} height={250} label={label} />
+        <AdSlotFigure ad={ad} src={ad.img300} width={300} height={250} label={label} eager={eager} />
       </div>
     )
   }
@@ -165,10 +170,10 @@ export default function AdBanner({
     return (
       <div className={`w-full ${wrapperSpacing} ${className}`}>
         <div className="hidden md:block">
-          <AdSlotFigure ad={ad} src={ad.img728} width={728} height={90} label={label} />
+          <AdSlotFigure ad={ad} src={ad.img728} width={728} height={90} label={label} eager={eager} />
         </div>
         <div className="md:hidden">
-          <AdSlotFigure ad={ad} src={ad.img300} width={300} height={250} label={label} />
+          <AdSlotFigure ad={ad} src={ad.img300} width={300} height={250} label={label} eager={eager} />
         </div>
       </div>
     )
@@ -177,13 +182,13 @@ export default function AdBanner({
   return (
     <div className={`w-full ${wrapperSpacing} ${className}`}>
       <div className="hidden lg:block">
-        <AdSlotFigure ad={ad} src={ad.img970} width={970} height={250} label={label} />
+        <AdSlotFigure ad={ad} src={ad.img970} width={970} height={250} label={label} eager={eager} />
       </div>
       <div className="hidden md:block lg:hidden">
-        <AdSlotFigure ad={ad} src={ad.img728} width={728} height={90} label={label} />
+        <AdSlotFigure ad={ad} src={ad.img728} width={728} height={90} label={label} eager={eager} />
       </div>
       <div className="md:hidden">
-        <AdSlotFigure ad={ad} src={ad.img300} width={300} height={250} label={label} />
+        <AdSlotFigure ad={ad} src={ad.img300} width={300} height={250} label={label} eager={eager} />
       </div>
     </div>
   )
