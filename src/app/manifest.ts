@@ -1,9 +1,9 @@
 import type { MetadataRoute } from 'next'
-import { SITE_NAME, SITE_DESCRIPTION } from '@/lib/constants'
+import { SITE_NAME, SITE_DESCRIPTION, SITE_TAGLINE } from '@/lib/constants'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: `${SITE_NAME} — A informação do nosso bairro`,
+    name: `${SITE_NAME} — ${SITE_TAGLINE}`,
     short_name: SITE_NAME,
     description: SITE_DESCRIPTION,
     start_url: '/',

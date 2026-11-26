@@ -10,6 +10,7 @@ import {
   SITE_URL,
   SITE_NAME,
   SITE_DESCRIPTION,
+  SITE_TAGLINE,
   INSTAGRAM_URL,
   EMERGENCY_NUMBERS,
 } from '@/lib/constants'
@@ -107,7 +108,7 @@ export default async function HomePage() {
         '@type': 'WebSite',
         '@id': `${SITE_URL}/#website`,
         url: SITE_URL,
-        name: `${SITE_NAME} — A informação do nosso bairro`,
+        name: `${SITE_NAME} — ${SITE_TAGLINE}`,
         description: SITE_DESCRIPTION,
         inLanguage: 'pt-BR',
         publisher: { '@id': `${SITE_URL}/#organization` },

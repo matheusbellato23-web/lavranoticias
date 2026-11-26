@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Navbar from './Navbar'
+import { SITE_TAGLINE } from '@/lib/constants'
 
 export default function Header() {
   return (
@@ -21,7 +22,7 @@ export default function Header() {
             </h1>
           </Link>
           <p className="mt-2 font-serif text-lg italic text-muted-foreground">
-            A informação do nosso bairro.
+            {SITE_TAGLINE}
           </p>
         </div>
         <a

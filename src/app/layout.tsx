@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Archivo, Archivo_Black, Source_Serif_4 } from 'next/font/google'
 import './globals.css'
-import { SITE_URL, SITE_NAME } from '@/lib/constants'
+import { SITE_URL, SITE_NAME, SITE_TAGLINE } from '@/lib/constants'
 import { getSiteSeoSettings } from '@/lib/seo'
 import { isValidGaMeasurementId, isValidGtmId } from '@/lib/analytics-events'
 import GoogleAnalytics, { GoogleTagManagerNoScript } from '@/components/analytics/GoogleAnalytics'
@@ -35,7 +35,7 @@ export const viewport: Viewport = {
 
 export async function generateMetadata(): Promise<Metadata> {
   const seo = await getSiteSeoSettings()
-  const titleDefault = `${SITE_NAME} – A informação do nosso bairro`
+  const titleDefault = `${SITE_NAME} – ${SITE_TAGLINE}`
   const ogImageUrl = seo.defaultOgImage.startsWith('http')
     ? seo.defaultOgImage
     : `${SITE_URL}${seo.defaultOgImage}`
