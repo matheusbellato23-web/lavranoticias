@@ -254,16 +254,19 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
           <ShareButtons url={canonicalUrl} title={post.title} />
 
+          {/* Publicidade rotativa colada diretamente em cima da foto da matéria (ideal para comprovação/print único Puxe) */}
+          <div className="mt-4">
+            <AdBanner position="content" format="leaderboard" label="PUBLICIDADE" />
+          </div>
+
           {post.coverImage && (
-            <div className="mt-6 space-y-3">
+            <div className="mt-4">
               <img
                 src={post.coverImage}
                 alt={post.title}
                 className="w-full rounded object-cover aspect-[16/10]"
                 loading="eager"
               />
-              {/* Publicidade rotativa colada diretamente embaixo da foto da matéria */}
-              <AdBanner position="content" format="leaderboard" label="PUBLICIDADE" />
             </div>
           )}
 
