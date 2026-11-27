@@ -96,7 +96,7 @@ export default async function HomePage() {
         description: SITE_DESCRIPTION,
         logo: {
           '@type': 'ImageObject',
-          url: `${SITE_URL}/assets/logo-lavras.png`,
+          url: `${SITE_URL}/assets/logo-lavras-v2.png`,
         },
         sameAs: [INSTAGRAM_URL],
         areaServed: {

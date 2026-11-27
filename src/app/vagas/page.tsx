@@ -119,7 +119,7 @@ export default function VagasPage() {
             className="flex items-center gap-3"
           >
             <img
-              src="/assets/logo-lavras.png"
+              src="/assets/logo-lavras-v2.png"
               alt="Logo Lavras"
               className="h-14 w-auto"
             />

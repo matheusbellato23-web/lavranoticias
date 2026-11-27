@@ -8,7 +8,7 @@ export default function Header() {
       <div className="mx-auto flex max-w-6xl items-center gap-5 px-4 py-6">
         <Link href="/" className="shrink-0">
           <img
-            src="/assets/logo-lavras.png"
+            src="/assets/logo-lavras-v2.png"
             alt="Logo Lavras"
             width={80}
             height={80}
