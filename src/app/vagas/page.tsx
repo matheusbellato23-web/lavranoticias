@@ -115,7 +115,7 @@ export default function VagasPage() {
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-5">
           <Link
             href="/"
-            aria-label="Lavras Notícia — página inicial"
+            aria-label="Lavras Notícias — página inicial"
             className="flex items-center gap-3"
           >
             <img
@@ -124,7 +124,7 @@ export default function VagasPage() {
               className="h-14 w-auto"
             />
             <span className="font-display text-2xl uppercase sm:text-3xl text-foreground">
-              Lavras <span className="text-accent">Notícia</span>
+              Lavras <span className="text-accent">Notícias</span>
             </span>
           </Link>
         </div>

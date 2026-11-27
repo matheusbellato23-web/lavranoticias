@@ -157,7 +157,7 @@ export default function AnalyticsPage() {
             </h1>
             <p className="text-sm text-slate-500 max-w-2xl">
               Consolidação de leituras, alcance e origens de tráfego do portal de notícias{' '}
-              <strong>Lavras Notícia</strong>.
+              <strong>Lavras Notícias</strong>.
             </p>
           </div>
 

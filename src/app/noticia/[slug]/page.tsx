@@ -249,7 +249,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           )}
 
           <p className="mt-3 text-xs text-muted-foreground">
-            Por <strong className="text-foreground">{post.authorName || 'Redação Lavras Notícia'}</strong> · Publicado em {formattedDate}
+            Por <strong className="text-foreground">{post.authorName || 'Redação Lavras Notícias'}</strong> · Publicado em {formattedDate}
           </p>
 
           <ShareButtons url={canonicalUrl} title={post.title} />

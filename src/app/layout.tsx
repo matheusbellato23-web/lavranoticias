@@ -55,6 +55,7 @@ export async function generateMetadata(): Promise<Metadata> {
       address: false,
     },
     keywords: [
+      'Lavras Notícias',
       'Lavras Notícia',
       'Bairro Lavras Guarulhos',
       'Notícias de Guarulhos',

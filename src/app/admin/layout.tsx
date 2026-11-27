@@ -2,7 +2,7 @@ import AdminLayoutClient from '@/components/admin/AdminLayoutClient'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Painel Administrativo – Lavras Notícia',
+  title: 'Painel Administrativo – Lavras Notícias',
   robots: {
     index: false,
     follow: false,

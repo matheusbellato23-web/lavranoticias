@@ -1,8 +1,8 @@
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://lavrasnoticias.com'
-export const SITE_NAME = 'Lavras Notícia'
-export const SITE_TAGLINE = 'A informação do bairro e geral.'
+export const SITE_NAME = 'Lavras Notícias'
+export const SITE_TAGLINE = 'Informações de Confiança'
 export const SITE_DESCRIPTION =
-  'Jornal digital comunitário e independente do bairro Lavras e região — Guarulhos, São Paulo. Notícias locais, trânsito, obras, prefeitura, utilidade pública, agenda, vagas de emprego e informações gerais.'
+  'Jornal digital comunitário e independente de Lavras e região — Guarulhos, São Paulo. Notícias locais, trânsito, obras, prefeitura, utilidade pública, agenda, vagas de emprego e informações de confiança.'
 export const DEFAULT_OG_IMAGE = '/assets/hero-bairro.jpg'
 export const INSTAGRAM_URL = 'https://www.instagram.com/lavras_noticias/'
 

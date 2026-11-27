@@ -163,7 +163,7 @@ export default async function HomePage() {
 
                 <div className="mt-auto pt-4 border-t border-border/60 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span>
-                    Por <strong className="text-foreground">{heroPost.authorName || 'Redação Lavras Notícia'}</strong> ·{' '}
+                    Por <strong className="text-foreground">{heroPost.authorName || 'Redação Lavras Notícias'}</strong> ·{' '}
                     {new Date(heroPost.publishedAt).toLocaleDateString('pt-BR', {
                       day: '2-digit',
                       month: 'long',

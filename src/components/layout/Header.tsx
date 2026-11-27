@@ -18,7 +18,7 @@ export default function Header() {
         <div>
           <Link href="/">
             <h1 className="font-display text-4xl uppercase leading-none tracking-tight md:text-6xl text-foreground">
-              Lavras <span className="text-accent">Notícia</span>
+              Lavras <span className="text-accent">Notícias</span>
             </h1>
           </Link>
           <p className="mt-2 font-serif text-lg italic text-muted-foreground">

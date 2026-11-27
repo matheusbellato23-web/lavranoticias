@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="lavrasGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0038a8" />
+      <stop offset="40%" stop-color="#023094" />
+      <stop offset="68%" stop-color="#800a30" />
+      <stop offset="100%" stop-color="#d60205" />
+    </linearGradient>
+    <filter id="textShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.3" />
+    </filter>
+  </defs>
+  <circle cx="200" cy="200" r="192" fill="url(#lavrasGradient)" />
+  <text
+    x="200"
+    y="224"
+    text-anchor="middle"
+    fill="#ffffff"
+    font-family="'Archivo Black', 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif"
+    font-weight="900"
+    font-size="68"
+    letter-spacing="3"
+    filter="url(#textShadow)"
+  >LAVRAS</text>
+</svg>
